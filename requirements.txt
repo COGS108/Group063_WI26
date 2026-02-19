@@ -1,0 +1,22 @@
+# Core
+pandas
+numpy
+
+# Download helpers used by modules/get_data.py
+requests
+tqdm
+
+# Parquet support (needed for pd.read_parquet)
+pyarrow
+
+# EDA / plotting
+matplotlib
+seaborn
+
+# Modeling / stats (common for COGS108)
+scikit-learn
+statsmodels
+
+# Notebooks
+jupyter
+ipykernel

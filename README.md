@@ -15,3 +15,11 @@ But this is *your* repo. You are free to manage the repo as you see fit, edit th
 At the final project date there is an option to make your final project visible to others.  If you choose this option your repo will become publicly visible. 
 
 Also, you are encouraged to share this project after the course and to add it to your portfolio. If your repo is public you may fork it. If it is private you may follow [these instructions](https://docs.google.com/document/d/1_PP-vlsyWjNegGGsmeDB5B-ltjYW1Db14q9dx3HM9e4/edit?usp=sharing)
+
+
+**SETUP INSTRUCTIONS**
+run the following commands in your terminal to set up a Python virtual environment and install the required packages:
+
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
