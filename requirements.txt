@@ -12,6 +12,7 @@ pyarrow
 # EDA / plotting
 matplotlib
 seaborn
+xlrd
 
 # Modeling / stats (common for COGS108)
 scikit-learn
