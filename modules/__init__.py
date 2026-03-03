@@ -9,6 +9,7 @@ from .maps import (
     
     plot_stations_near_taxi_zone,
     plot_transit_map,
+    plot_transit_map2,
 )
 
 from .histogram import (
@@ -19,8 +20,13 @@ from .histogram import (
 from .utils import (
     find_stations_near_taxi_zone,
     prepare_gdf_data,
-    prepare_ridership_data
-
+    prepare_ridership_data,
+)
+from .data_cleaning import (
+    clean_FHV_data,
+    clean_MTS_data,
+    clean_subway_stations,
+    load_and_shorten_data
 )
 
 # Define what gets imported with "from functions import *"

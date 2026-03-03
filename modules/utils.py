@@ -102,13 +102,13 @@ def find_stations_near_taxi_zone(taxi_zone_id:(int | str),
     
     return stations_within
 
-def find_taxi_zone_for_station(station_id, subway_gdf, taxi_zones_gdf):
+def find_taxi_zone_for_station(station_complex_id, subway_gdf, taxi_zones_gdf):
     """
     Find the taxi zone that contains a given subway station
     
     Parameters:
     -----------
-    station_id : str
+    station_complex_id : str
         The unique identifier for the subway station (e.g., 'GTFS Stop ID')
     subway_gdf : GeoDataFrame
         GeoDataFrame containing subway stations with point geometries
@@ -121,14 +121,14 @@ def find_taxi_zone_for_station(station_id, subway_gdf, taxi_zones_gdf):
     """
     
     # 1. Find the target station
-    target_station = subway_gdf[subway_gdf['GTFS Stop ID'] == station_id].copy()
+    target_station = subway_gdf[subway_gdf['Complex ID'] == station_complex_id].copy()
     
     if len(target_station) == 0:
-        print(f"❌ Station ID {station_id} not found")
+        print(f"❌ Station Complex ID {station_complex_id} not found")
         return None
     
-    station_name = target_station.iloc[0].get('Stop Name', f'Station {station_id}')
-    print(f"📍 Searching for taxi zone containing: {station_name} (ID: {station_id})")
+    station_name = target_station.iloc[0].get('Stop Name', f'Station {station_complex_id}')
+    print(f"📍 Searching for taxi zone containing: {station_name} (ID: {station_complex_id})")
     
     # 2. Get the station geometry
     station_geom = target_station.geometry.iloc[0]

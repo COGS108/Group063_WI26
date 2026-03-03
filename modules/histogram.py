@@ -72,7 +72,7 @@ def create_popularity_histogram(df_combined, df_mta, month):
     print(f"Busiest pickup zone: Zone {tlc_top.index[0]} ({tlc_top.values[0]:,.0f} trips)")
     print(f"Busiest MTA station: Station {mta_top.index[0]} ({mta_top.values[0]:,.0f} riders)")
 
-def compare_daily_patterns(df_combined, df_mta, zone_id, station_id, 
+def compare_daily_patterns(df_combined, df_mta, zone_id, station_complex_id, 
                           start_date=None, end_date=None,
                           figsize=(15, 8), save_path=None):
     """
@@ -110,7 +110,7 @@ def compare_daily_patterns(df_combined, df_mta, zone_id, station_id,
     mta['date'] = pd.to_datetime(mta['date'])
     
     # Filter for specific station
-    station_data = mta[mta['station_complex_id'].astype(str) == str(station_id)].copy()
+    station_data = mta[mta['station_complex_id'].astype(str) == str(station_complex_id)].copy()
     
     # Apply date filters if provided
     if start_date:
@@ -134,11 +134,11 @@ def compare_daily_patterns(df_combined, df_mta, zone_id, station_id,
     if len(zone_daily) == 0:
         print(f"Warning: No TLC data found for zone {zone_id}")
     if len(station_daily) == 0:
-        print(f"Warning: No MTA data found for station {station_id}")
+        print(f"Warning: No MTA data found for station {station_complex_id}")
     
     # Create the plot
     fig, axes = plt.subplots(3, 1, figsize=figsize, height_ratios=[2, 2, 1])
-    fig.suptitle(f'Daily Comparison: Taxi Zone {zone_id} vs MTA Station {station_id}', 
+    fig.suptitle(f'Daily Comparison: Taxi Zone {zone_id} vs MTA Station {station_complex_id}', 
                  fontsize=16, fontweight='bold', y=0.95)
     
     # Colors
@@ -176,7 +176,7 @@ def compare_daily_patterns(df_combined, df_mta, zone_id, station_id,
     if len(station_daily) > 0:
         ax2.plot(station_daily['date'], station_daily['ridership'], 
                 color=color_mta, linewidth=2, marker='s', markersize=4,
-                label=f'Station {station_id} Ridership')
+                label=f'Station {station_complex_id} Ridership')
         
         # Add moving average (7-day)
         station_daily['ma_7'] = station_daily['ridership'].rolling(window=7, center=True).mean()
@@ -189,7 +189,7 @@ def compare_daily_patterns(df_combined, df_mta, zone_id, station_id,
                         alpha=0.3, color=color_mta)
     
     ax2.set_ylabel('Number of Riders', fontsize=12)
-    ax2.set_title(f'Daily MTA Ridership - Station {station_id}', fontsize=12, fontweight='bold')
+    ax2.set_title(f'Daily MTA Ridership - Station {station_complex_id}', fontsize=12, fontweight='bold')
     ax2.legend(loc='upper right')
     ax2.grid(True, alpha=0.3)
     
@@ -213,7 +213,7 @@ def compare_daily_patterns(df_combined, df_mta, zone_id, station_id,
             ax3.plot(merged['date'], merged['tlc_norm'], 
                     color=color_tlc, linewidth=2, label=f'Zone {zone_id} (normalized)')
             ax3.plot(merged['date'], merged['mta_norm'], 
-                    color=color_mta, linewidth=2, label=f'Station {station_id} (normalized)')
+                    color=color_mta, linewidth=2, label=f'Station {station_complex_id} (normalized)')
             
             # Find correlation
             correlation = merged['tlc_norm'].corr(merged['mta_norm'])
@@ -251,7 +251,7 @@ def compare_daily_patterns(df_combined, df_mta, zone_id, station_id,
         print(f"  - Standard deviation: {zone_daily['trip_count'].std():,.1f}")
     
     if len(station_daily) > 0:
-        print(f"\n🚇 MTA Station {station_id}:")
+        print(f"\n🚇 MTA Station {station_complex_id}:")
         print(f"  - Total ridership: {station_daily['ridership'].sum():,.0f}")
         print(f"  - Daily average: {station_daily['ridership'].mean():,.1f}")
         print(f"  - Peak day: {station_daily.loc[station_daily['ridership'].idxmax(), 'date'].strftime('%Y-%m-%d')} "
@@ -272,7 +272,7 @@ def compare_daily_patterns(df_combined, df_mta, zone_id, station_id,
         
         days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
         
-        print(f"\n  Day        | Zone {zone_id} (avg) | Station {station_id} (avg)")
+        print(f"\n  Day        | Zone {zone_id} (avg) | Station {station_complex_id} (avg)")
         print("-" * 50)
         for i, day in enumerate(days):
             print(f"  {day:<10} | {zone_dow[i]:>12,.0f} | {station_dow[i]:>12,.0f}")

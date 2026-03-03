@@ -11,9 +11,9 @@ def clean_MTS_data(filename):
     mts_df = pd.read_csv(filename)
     mts_df = mts_df.drop(columns=['latitude', 'longitude'])
 
-def clean_subway_stations(filename):
+def clean_subway_stations(filename = "data/00-raw/MTA_Subway_Stations.csv"):
     stations_df = pd.read_csv(filename)
-    cleaned_df = stations_df.drop(columns=['Complex ID', 'Division', 'CBD',
+    cleaned_df = stations_df.drop(columns=['GTFS Stop ID','Division', 'CBD',
                                         'Daytime Routes', 'Structure',
                                         'North Direction Label', 'South Direction Label',
                                         'ADA', 'ADA Northbound', 'ADA Southbound', 'ADA Notes',
@@ -37,12 +37,3 @@ def load_and_shorten_data(file_path, n_rows):
     except Exception as e:
         print(f"Error loading data from {file_path}: {e}")
         return None
-    
-stations_path = "data/00-raw/MTA_Subway_Stations.csv"
-cleaned_df = clean_subway_stations(stations_path)
-print(cleaned_df.head())
-print(cleaned_df.columns)
-cleaned_df.to_csv("data/02-processed/map_files/MTA_Subway_Stations_cleaned.csv", index=False)
-
-shortened_df =load_and_shorten_data("data/00-raw/2023_High_Volume_FHV_Trip_Data_20260218.csv", 10000)
-shortened_df.to_csv("data/01-interim/2023_HVFHV_Trip_Data_shortened_raw.csv", index=False)
