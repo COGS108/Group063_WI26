@@ -102,18 +102,58 @@ def find_stations_near_taxi_zone(taxi_zone_id:(int | str),
     
     return stations_within
 
+def find_taxi_zone_for_station(station_id, subway_gdf, taxi_zones_gdf):
+    """
+    Find the taxi zone that contains a given subway station
+    
+    Parameters:
+    -----------
+    station_id : str
+        The unique identifier for the subway station (e.g., 'GTFS Stop ID')
+    subway_gdf : GeoDataFrame
+        GeoDataFrame containing subway stations with point geometries
+    taxi_zones_gdf : GeoDataFrame
+        GeoDataFrame containing taxi zones with polygon geometries
+    
+    Returns:
+    --------
+    GeoDataFrame with the taxi zone containing the station, or None if not found
+    """
+    
+    # 1. Find the target station
+    target_station = subway_gdf[subway_gdf['GTFS Stop ID'] == station_id].copy()
+    
+    if len(target_station) == 0:
+        print(f"❌ Station ID {station_id} not found")
+        return None
+    
+    station_name = target_station.iloc[0].get('Stop Name', f'Station {station_id}')
+    print(f"📍 Searching for taxi zone containing: {station_name} (ID: {station_id})")
+    
+    # 2. Get the station geometry
+    station_geom = target_station.geometry.iloc[0]
+    
+    # 3. Check which taxi zone contains this station
+    containing_zone = taxi_zones_gdf[taxi_zones_gdf.geometry.contains(station_geom)].copy()
+    
+    if len(containing_zone) == 0:
+        print(f"⚠️ No taxi zone contains station {station_name}")
+        return None
+    
+    return containing_zone
 
 def prepare_ridership_data(
-    hvfhv_csv_path = "data/02-processed/hourly_ridership.csv",
+    hvfhv_csv_path = "data/02-processed/total_ridership.csv",
     mta_csv_path = "data/01-interim/MTA_subway/MTA_Subway_Daily_Manhattan.csv"
     ):
     # Load data
     df_hvfhv = pd.read_csv(hvfhv_csv_path)
     df_mta = pd.read_csv(mta_csv_path)
     
-    # Convert date columns to datetime
+    #Convert date columns to datetime
     #df_hvfhv['pickup_datetime'] = pd.to_datetime(df_hvfhv['pickup_datetime'])
     #df_mta['date'] = pd.to_datetime(df_mta['date'])
+    
     
     return df_hvfhv, df_mta
 
