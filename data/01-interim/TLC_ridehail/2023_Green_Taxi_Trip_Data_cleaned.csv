@@ -1,4 +1,4 @@
-"by_day_lpep_pickup_datetime","PULocationID","trip_count"
+"by_day_pickup_datetime","PULocationID","trip_count"
 "2023 Jan 01 12:00:00 AM","3","1"
 "2023 Jan 01 12:00:00 AM","7","60"
 "2023 Jan 01 12:00:00 AM","14","3"

@@ -3,8 +3,6 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import numpy as np
 from datetime import datetime
-df_hvfhv = pd.read_csv("data/01-interim/2023_High_Volume_FHV_Trip_Data_cleaned.csv")
-df_mta = pd.read_csv("data/01-interim/MTA_Subway_Daily_Manhattan.csv")
 
 
 def create_popularity_histogram(df_hvfhv, df_mta, month):
@@ -294,8 +292,6 @@ def compare_daily_patterns(df_hvfhv, df_mta, zone_id, station_id,
     
     return fig, (ax1, ax2, ax3)
 
-
-# Additional function to compare multiple zones/stations
 def compare_multiple_daily(df_hvfhv, df_mta, zone_ids, station_ids,
                           start_date=None, end_date=None,
                           figsize=(15, 10), save_path=None):
@@ -376,28 +372,25 @@ def compare_multiple_daily(df_hvfhv, df_mta, zone_ids, station_ids,
 
 # Example usage:
 if __name__ == "__main__":
-    # Assuming you have your data loaded
-    # df_hvfhv = pd.read_csv('your_hvfhv_data.csv')
-    # df_mta = pd.read_csv('your_mta_data.csv')
     
     # Compare one zone and one station
     fig, axes = compare_daily_patterns(
-         df_hvfhv, df_mta,
-         zone_id=132,
-         station_id=611,
-         start_date='2023-01-01',
-         end_date='2023-01-31',
-         #save_path='daily_comparison_zone2_station8.png'
+        df_hvfhv, df_mta,
+        zone_id=132,
+        station_id=611,
+        start_date='2023-01-01',
+        end_date='2023-01-31',
+        #save_path='daily_comparison_zone2_station8.png'
      )
     
-    # Compare multiple
-    # fig, axes = compare_multiple_daily(
-    #     df_hvfhv, df_mta,
-    #     zone_ids=[2, 3, 4],
-    #     station_ids=[8, 9, 10],
-    #     start_date='2023-01-01',
-    #     end_date='2023-01-31'
-    # )
+    #Compare multiple
+    fig, axes = compare_multiple_daily(
+        df_hvfhv, df_mta,
+        zone_ids=[2, 3, 4],
+        station_ids=[8, 9, 10],
+        start_date='2023-01-01',
+        end_date='2023-01-31'
+    )
     pass
 
 

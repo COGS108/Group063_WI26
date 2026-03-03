@@ -1,4 +1,4 @@
-"by_day_tpep_dropoff_datetime","PULocationID","trip_count"
+"by_day_pickup_datetime","PULocationID","trip_count"
 "2023 Jan 01 12:00:00 AM","1","40"
 "2023 Jan 01 12:00:00 AM","4","174"
 "2023 Jan 01 12:00:00 AM","5","3"
