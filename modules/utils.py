@@ -142,10 +142,26 @@ def find_taxi_zone_for_station(station_complex_id, subway_gdf, taxi_zones_gdf):
     
     return containing_zone
 
+#Prepares the ridership dataframes
 def prepare_ridership_data(
     hvfhv_csv_path = "data/02-processed/total_ridership.csv",
     mta_csv_path = "data/01-interim/MTA_subway/MTA_Subway_Daily_Manhattan.csv"
     ):
+
+    """
+    Prepare ridership data for analysis
+    
+    Parameters:
+    -----------
+    hvfhv_csv_path : str
+        Path to the HVFHV ridership CSV file
+    mta_csv_path : str
+        Path to the MTA ridership CSV file
+
+    Returns:
+    --------
+    Tuple of GeoDataFrames (hvfhv_data, mta_data)
+    """
     # Load data
     df_hvfhv = pd.read_csv(hvfhv_csv_path)
     df_mta = pd.read_csv(mta_csv_path)
@@ -162,30 +178,46 @@ def prepare_gdf_data(subway_station_csv_path = 'data/02-processed/map_files/MTA_
                     taxi_zones_geojson_path = 'data/02-processed/map_files/NYC_Taxi_Zones.geojson',
                     subway_lines_geojson_path ='data/02-processed/map_files/MTA_Subway_Service_Lines.geojson'):
     
+        """
+    Prepare ridership data for analysis
+    
+    Parameters:
+    -----------
+    subway_station_csv_path : str
+        Path to the subway station CSV file
+    taxi_zones_geojson_path : str
+        Path to the taxi zones GeoJSON file
+    subway_lines_geojson_path : str
+        Path to the subway lines GeoJSON file
+
+    Returns:
+    --------
+    Tuple of GeoDataFrames (subway_stations_gdf, taxi_zones_gdf, subway_lines_gdf)
+    """
     # Load subway data (stations)
-    subway_df = pd.read_csv(subway_station_csv_path)
-    subway_gdf = gpd.GeoDataFrame(
-        subway_df,
-        geometry=gpd.points_from_xy(subway_df['GTFS Longitude'], 
-                                    subway_df['GTFS Latitude']),
-        crs="EPSG:4326"
-    )
-    
-    # Load taxi zones
-    taxi_zones_gdf = gpd.read_file(taxi_zones_geojson_path)
-    
-    # Make sure they're in the same CRS
-    if taxi_zones_gdf.crs != subway_gdf.crs:
-        taxi_zones_gdf = taxi_zones_gdf.to_crs(subway_gdf.crs)
-    
-    # Load subway lines if path is provided
-    if subway_lines_geojson_path is not None:
-        subway_lines_gdf = gpd.read_file(subway_lines_geojson_path)
+        subway_df = pd.read_csv(subway_station_csv_path)
+        subway_gdf = gpd.GeoDataFrame(
+            subway_df,
+            geometry=gpd.points_from_xy(subway_df['GTFS Longitude'], 
+                                        subway_df['GTFS Latitude']),
+            crs="EPSG:4326"
+        )
         
-        # Ensure subway lines are in the same CRS
-        if subway_lines_gdf.crs != subway_gdf.crs:
-            subway_lines_gdf = subway_lines_gdf.to_crs(subway_gdf.crs)
+        # Load taxi zones
+        taxi_zones_gdf = gpd.read_file(taxi_zones_geojson_path)
         
-        return subway_gdf, taxi_zones_gdf, subway_lines_gdf
-    
-    return subway_gdf, taxi_zones_gdf
+        # Make sure they're in the same CRS
+        if taxi_zones_gdf.crs != subway_gdf.crs:
+            taxi_zones_gdf = taxi_zones_gdf.to_crs(subway_gdf.crs)
+        
+        # Load subway lines if path is provided
+        if subway_lines_geojson_path is not None:
+            subway_lines_gdf = gpd.read_file(subway_lines_geojson_path)
+            
+            # Ensure subway lines are in the same CRS
+            if subway_lines_gdf.crs != subway_gdf.crs:
+                subway_lines_gdf = subway_lines_gdf.to_crs(subway_gdf.crs)
+            
+            return subway_gdf, taxi_zones_gdf, subway_lines_gdf
+        
+        return subway_gdf, taxi_zones_gdf
