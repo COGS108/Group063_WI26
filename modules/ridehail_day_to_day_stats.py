@@ -8,6 +8,10 @@ This module compares daily ridership dynamics across four TLC services:
 
 Primary question:
 "Do methods increase/decrease by similar factors on the same day?"
+
+Key p-value columns in outputs:
+- p_value: raw p-value from the individual test.
+- p_value_fdr_bh: Benjamini-Hochberg adjusted p-value for multiple comparisons.
 """
 
 from __future__ import annotations
@@ -155,12 +159,20 @@ def run_day_to_day_tests(daily_matrix: pd.DataFrame) -> Dict[str, pd.DataFrame]:
         raise ValueError("No fully-overlapping dates across services.")
 
     # Use log day-over-day ratios as multiplicative daily change.
+    # Example:
+    # +20% -> log(1.20)=+0.182, -20% -> log(0.80)=-0.223.
+    # These are not perfectly equal, but much closer to symmetric around 0
+    # than raw percent changes (+0.20 vs -0.20 has asymmetric compounding).
     ratios = np.log(complete[value_cols] / complete[value_cols].shift(1))
     ratios = ratios.replace([np.inf, -np.inf], np.nan).dropna()
     if ratios.empty:
         raise ValueError("Unable to compute day-over-day log ratios.")
 
-    # 1) Overall repeated-measures test: do services have same daily-change distribution?
+    # 1) Friedman repeated-measures test (rank-based, non-parametric).
+    # Null hypothesis: across matched days, all services come from the same
+    # distribution of day-over-day log changes.
+    # "Repeated-measures" here means each day provides one observation per service.
+    # "Rank-based" means values are compared by within-day rank, not raw magnitude.
     friedman = friedmanchisquare(*(ratios[c].values for c in value_cols))
     overall = pd.DataFrame(
         {
@@ -171,7 +183,9 @@ def run_day_to_day_tests(daily_matrix: pd.DataFrame) -> Dict[str, pd.DataFrame]:
         }
     )
 
-    # 2) Pairwise paired t-tests on log-ratio difference (mean difference == 0)
+    # 2) Pairwise paired t-tests on service differences per day.
+    # Null hypothesis for each pair (A,B): mean(log_change_A - log_change_B) = 0.
+    # Raw p-values are adjusted with BH-FDR because we run multiple pair tests.
     pair_rows: List[Dict[str, float]] = []
     for a, b in combinations(value_cols, 2):
         t_res = ttest_rel(ratios[a], ratios[b], nan_policy="omit")
@@ -190,6 +204,8 @@ def run_day_to_day_tests(daily_matrix: pd.DataFrame) -> Dict[str, pd.DataFrame]:
     pairwise["p_value_fdr_bh"] = benjamini_hochberg(pairwise["p_value"].to_numpy())
 
     # 3) Pairwise Pearson correlation of daily log-ratio movements.
+    # Null hypothesis for each pair: correlation r = 0 (no linear co-movement).
+    # Again, BH-FDR is applied across the multiple pairwise correlation tests.
     corr_rows: List[Dict[str, float]] = []
     for a, b in combinations(value_cols, 2):
         r, p = pearsonr(ratios[a], ratios[b])
