@@ -188,3 +188,6 @@ cython_debug/
 # data/*/*.sq*
 # data/*.SQ*
 # data/*/*.SQ*
+
+# Keep large raw parquet files out of git history
+data/00-raw/*.parquet
