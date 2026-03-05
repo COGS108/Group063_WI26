@@ -4,7 +4,7 @@ import pandas as pd
 
 
 RAW_DIR = Path("data/00-raw")
-OUT_DIR = Path("data/01-interim/TLC_ridehail")
+OUT_DIR = Path("data/01-interim/TLC_ridehail/july_2023")
 MONTH_TAG = "2023_07"
 JULY_START = pd.Timestamp("2023-07-01 00:00:00")
 JULY_END_EXCLUSIVE = pd.Timestamp("2023-08-01 00:00:00")
