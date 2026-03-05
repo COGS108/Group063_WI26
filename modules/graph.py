@@ -399,3 +399,104 @@ def compare_multiple_daily(df_combined, df_mta, zone_ids, station_ids,
     
     return fig, (ax1, ax2)
 
+def plot_ridership_histogram(mta_df, ridehail_df):    
+    # Aggregate by date
+    mta_agg = mta_df.groupby('date').agg({'ridership': 'sum'}).reset_index()
+    hvfhv_agg = ridehail_df.groupby('date').agg({'trip_count': 'sum'}).reset_index()
+
+    # Merge the datasets into one
+    merged_df = pd.merge(mta_agg, hvfhv_agg, on='date', how='inner')
+    merged_df.columns = ['date', 'mta_ridership', 'hvfhv_trips']
+    merged_df['date'] = pd.to_datetime(merged_df['date'])
+
+    # Add day of week column
+    merged_df['day_of_week'] = merged_df['date'].dt.day_name()
+
+    # Order days correctly
+    day_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+
+    # Calculate average ridership by day of week
+    dow_avg = merged_df.groupby('day_of_week')[['mta_ridership', 'hvfhv_trips']].mean().reindex(day_order)
+
+
+    # Create the histogram
+    fig, ax = plt.subplots(figsize=(12, 6))
+
+    x = np.arange(len(day_order))
+    width = 0.35
+
+    # Create bars
+    bars1 = ax.bar(x - width/2, dow_avg['mta_ridership'], width, 
+                label='MTA', color='blue', alpha=0.7, edgecolor='black')
+    bars2 = ax.bar(x + width/2, dow_avg['hvfhv_trips'], width, 
+                label='HVFHV', color='orange', alpha=0.7, edgecolor='black')
+
+    # Customize the plot
+    ax.set_xlabel('Day of Week', fontsize=12)
+    ax.set_ylabel('Average Daily Ridership', fontsize=12)
+    ax.set_title('Average Ridership by Day of Week: MTA vs HVFHV', fontsize=14, fontweight='bold')
+    ax.set_xticks(x)
+    ax.set_xticklabels(day_order)
+    ax.legend()
+    ax.grid(True, alpha=0.3, axis='y')
+
+    # Add value labels on bars
+    for bars in [bars1, bars2]:
+        for bar in bars:
+            height = bar.get_height()
+            ax.text(bar.get_x() + bar.get_width()/2., height,
+                    f'{int(height/1000)}K', ha='center', va='bottom', fontsize=9)
+
+    plt.tight_layout()
+    plt.show()
+
+def plot_mta_vs_ridehail_daily_df(mta_df, ridehail_df):
+        """
+        Line plot comparing MTA and HVFHV ridership over time
+        """
+        #print(ridehail_df.columns)
+        # Aggregate by date
+        ridehail_daily_df = ridehail_df.groupby('date')['trip_count'].sum().reset_index()
+        mta_daily = mta_df.groupby('date')['ridership'].sum().reset_index()
+
+        # Merge
+        daily_df = pd.merge(ridehail_daily_df, mta_daily, on='date')
+        daily_df['date'] = pd.to_datetime(daily_df['date'])
+        daily_df = daily_df.sort_values('date')
+
+        # Create figure with dual y-axis
+        fig, ax1 = plt.subplots(figsize=(15, 6))
+
+        # Plot MTA on primary axis (left)
+        color = 'tab:blue'
+        ax1.set_xlabel('Date', fontsize=12)
+        ax1.set_ylabel('MTA Ridership', color=color, fontsize=12)
+        ax1.plot(daily_df['date'], daily_df['ridership'], color=color, 
+                linewidth=1.5, alpha=0.8, label='MTA')
+        ax1.tick_params(axis='y', labelcolor=color)
+        ax1.grid(True, alpha=0.3)
+
+        # Create secondary axis for HVFHV (right)
+        ax2 = ax1.twinx()
+        color = 'tab:orange'
+        ax2.set_ylabel('HVFHV Trips', color=color, fontsize=12)
+        ax2.plot(daily_df['date'], daily_df['trip_count'], color=color, 
+                linewidth=1.5, alpha=0.8, label='HVFHV')
+        ax2.tick_params(axis='y', labelcolor=color)
+
+        # Add title and legend
+        plt.title('MTA vs HVFHV Daily Ridership Over Time', fontsize=16, fontweight='bold', pad=20)
+
+        # Combine legends from both axes
+        lines1, labels1 = ax1.get_legend_handles_labels()
+        lines2, labels2 = ax2.get_legend_handles_labels()
+        ax1.legend(lines1 + lines2, labels1 + labels2, loc='upper left')
+
+        plt.tight_layout()
+        plt.show()
+
+
+        #print(daily_df.columns)
+        # Print correlation
+        corr = daily_df['trip_count'].corr(daily_df['ridership'])
+        print(f"Overall correlation: {corr:.3f}")

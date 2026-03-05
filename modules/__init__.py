@@ -10,12 +10,15 @@ from .maps import (
     plot_stations_near_taxi_zone,
     plot_transit_map,
     plot_transit_map2,
+    plot_heatmap_by_day
 )
 
-from .histogram import (
+from .graph import (
     create_popularity_histogram,
     compare_daily_patterns,
-    compare_multiple_daily
+    compare_multiple_daily,
+    plot_ridership_histogram,
+    plot_mta_vs_ridehail_daily_df
 )
 from .utils import (
     find_stations_near_taxi_zone,

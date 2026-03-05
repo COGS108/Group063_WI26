@@ -350,3 +350,65 @@ def plot_transit_map2(subway_stations_gdf, taxi_zones_gdf, subway_lines_gdf=None
         print(f"   • Highlighted stations: {', '.join(highlight_stations)} ({len(highlighted_stations)} stations)")
     if buffer_miles > 0:
         print(f"   • Buffer radius: {buffer_miles} miles")
+
+def plot_heatmap_by_day(ridehail_df, taxi_zones_gdf, day_num, summary=False):
+    """
+    Plot heatmap of HVFHV ridership by taxi zone for a specific day.
+    
+    Parameters:
+    - ridehail_df: HVFHV dataframe
+    - taxi_zones_gdf: Taxi zones geodataframe
+    - day_num: 1-7 (1=Monday, 2=Tuesday, 3=Wednesday, 4=Thursday, 5=Friday, 6=Saturday, 7=Sunday)
+    - summary: If True, print summary stats (default False)
+    """
+    
+    # Map day number to name
+    days = {1:'Monday', 2:'Tuesday', 3:'Wednesday', 4:'Thursday', 
+            5:'Friday', 6:'Saturday', 7:'Sunday'}
+    day_name = days[day_num]
+    
+    # Prepare data
+    ridehail_df['date'] = pd.to_datetime(ridehail_df['date'])
+    ridehail_df['day_of_week'] = ridehail_df['date'].dt.day_name()
+    ridehail_df['PULocationID'] = ridehail_df['PULocationID'].astype(str)
+    taxi_zones_gdf['locationid'] = taxi_zones_gdf['locationid'].astype(str)
+    
+    # Filter for selected day and calculate averages
+    day_data = ridehail_df[ridehail_df['day_of_week'] == day_name]
+    day_avg = day_data.groupby('PULocationID')['trip_count'].mean().reset_index()
+    day_avg.columns = ['PULocationID', 'avg_trip_count']
+    
+    # Merge with taxi zones and keep only Manhattan
+    zones_day = taxi_zones_gdf.merge(day_avg, left_on='locationid', right_on='PULocationID', how='left')
+    zones_day['avg_trip_count'] = zones_day['avg_trip_count'].fillna(0)
+    manhattan = zones_day[zones_day['borough'] == 'Manhattan']
+    
+    # Create map
+    fig, ax = plt.subplots(1, 1, figsize=(12, 12))
+    
+    manhattan.plot(column='avg_trip_count', 
+                   ax=ax,
+                   legend=True,
+                   cmap='YlOrRd',
+                   edgecolor='black',
+                   linewidth=0.5,
+                   alpha=0.7,
+                   legend_kwds={'label': 'Avg Trip Count',
+                               'shrink': 0.6})
+    
+    ax.set_title(f'HVFHV Avg Ridership - {day_name} (Manhattan)', fontsize=14, fontweight='bold')
+    ax.set_axis_off()
+    
+    plt.tight_layout()
+    plt.show()
+    
+    # Optional summary
+    if summary:
+        print(f"\n{day_name} - Manhattan Summary:")
+        print(f"Total avg trips: {manhattan['avg_trip_count'].sum():,.0f}")
+        print("\nTop 5 zones:")
+        top = manhattan.nlargest(5, 'avg_trip_count')[['zone', 'avg_trip_count']]
+        for idx, row in top.iterrows():
+            print(f"  {row['zone']}: {row['avg_trip_count']:,.0f} avg trips")
+
+    

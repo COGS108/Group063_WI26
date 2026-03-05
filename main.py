@@ -13,4 +13,3 @@ subway_stations_gdf, taxi_zones_gdf, subway_lines_gdf = utils.prepare_gdf_data()
 hvfhv_df, mta_df = utils.prepare_ridership_data()
 
 utils.eliminate_ridership_outliers(hvfhv_df, mta_df)
-# I have a crush on Dustin
