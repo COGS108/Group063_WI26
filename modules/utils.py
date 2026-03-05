@@ -173,6 +173,145 @@ def prepare_ridership_data(
     
     return df_hvfhv, df_mta
 
+def eliminate_ridership_outliers(ridehail_df, mta_df):
+    mta_df = pd.read_csv("data/01-interim/MTA_subway/MTA_Subway_Daily_Manhattan_Totals.csv")
+    # Convert dates
+    ridehail_df['date'] = pd.to_datetime(ridehail_df['date'])
+    mta_df['date'] = pd.to_datetime(mta_df['date'])
+    
+    # Add day of week columns
+    ridehail_df['day_of_week'] = ridehail_df['date'].dt.day_name()
+    mta_df['day_of_week'] = mta_df['date'].dt.day_name()
+    
+    # Add weekend column (using dayofweek numbers: 5=Saturday, 6=Sunday)
+    ridehail_df['weekend'] = ridehail_df['date'].dt.dayofweek.isin([5, 6])
+    mta_df['weekend'] = mta_df['date'].dt.dayofweek.isin([5, 6])
+    
+    # Split data into weekday and weekend
+    weekday_data = mta_df[~mta_df['weekend']]
+    weekend_data = mta_df[mta_df['weekend']]
+    
+    # Calculate statistics for weekdays
+    weekday_mean = weekday_data['ridership'].mean()
+    weekday_std = weekday_data['ridership'].std()
+    weekday_upper_threshold = weekday_mean + (2 * weekday_std)
+    weekday_lower_threshold = weekday_mean - (2 * weekday_std)
+    weekday_upper_outliers = weekday_data[weekday_data['ridership'] > weekday_upper_threshold]
+    weekday_lower_outliers = weekday_data[weekday_data['ridership'] < weekday_lower_threshold]
+    
+    # Calculate statistics for weekends
+    weekend_mean = weekend_data['ridership'].mean()
+    weekend_std = weekend_data['ridership'].std()
+    weekend_upper_threshold = weekend_mean + (2 * weekend_std)
+    weekend_lower_threshold = weekend_mean - (2 * weekend_std)
+    weekend_upper_outliers = weekend_data[weekend_data['ridership'] > weekend_upper_threshold]
+    weekend_lower_outliers = weekend_data[weekend_data['ridership'] < weekend_lower_threshold]
+    
+    # Print weekday outliers
+    print("=" * 60)
+    print("WEEKDAY ANALYSIS")
+    print("=" * 60)
+    print(f"Mean ridership (Weekdays): {weekday_mean:.2f}")
+    print(f"Standard deviation: {weekday_std:.2f}")
+    print(f"Upper 3-sigma threshold (+3σ): {weekday_upper_threshold:.2f}")
+    print(f"Lower 3-sigma threshold (-3σ): {weekday_lower_threshold:.2f}")
+    
+    print(f"\n📈 WEEKDAY - HIGH OUTLIERS (above +3σ): {len(weekday_upper_outliers)} days found")
+    print("-" * 50)
+    if len(weekday_upper_outliers) > 0:
+        for idx, row in weekday_upper_outliers.iterrows():
+            print(f"Date: {row['date'].strftime('%Y-%m-%d')}, "
+                  f"Ridership: {row['ridership']:.0f}, "
+                  f"Day: {row['day_of_week']} "
+                  f"(+{(row['ridership'] - weekday_mean)/weekday_std:.2f}σ)")
+    else:
+        print("No weekday high outliers found above +3σ")
+    
+    print(f"\n📉 WEEKDAY - LOW OUTLIERS (below -3σ): {len(weekday_lower_outliers)} days found")
+    print("-" * 50)
+    if len(weekday_lower_outliers) > 0:
+        for idx, row in weekday_lower_outliers.iterrows():
+            print(f"Date: {row['date'].strftime('%Y-%m-%d')}, "
+                  f"Ridership: {row['ridership']:.0f}, "
+                  f"Day: {row['day_of_week']} "
+                  f"({(row['ridership'] - weekday_mean)/weekday_std:.2f}σ)")
+    else:
+        print("No weekday low outliers found below -3σ")
+    
+    # Print weekend outliers
+    print("\n" + "=" * 60)
+    print("WEEKEND ANALYSIS")
+    print("=" * 60)
+    print(f"Mean ridership (Weekends): {weekend_mean:.2f}")
+    print(f"Standard deviation: {weekend_std:.2f}")
+    print(f"Upper 3-sigma threshold (+3σ): {weekend_upper_threshold:.2f}")
+    print(f"Lower 3-sigma threshold (-3σ): {weekend_lower_threshold:.2f}")
+    
+    print(f"\n📈 WEEKEND - HIGH OUTLIERS (above +3σ): {len(weekend_upper_outliers)} days found")
+    print("-" * 50)
+    if len(weekend_upper_outliers) > 0:
+        for idx, row in weekend_upper_outliers.iterrows():
+            print(f"Date: {row['date'].strftime('%Y-%m-%d')}, "
+                  f"Ridership: {row['ridership']:.0f}, "
+                  f"Day: {row['day_of_week']} "
+                  f"(+{(row['ridership'] - weekend_mean)/weekend_std:.2f}σ)")
+    else:
+        print("No weekend high outliers found above +3σ")
+    
+    print(f"\n📉 WEEKEND - LOW OUTLIERS (below -3σ): {len(weekend_lower_outliers)} days found")
+    print("-" * 50)
+    if len(weekend_lower_outliers) > 0:
+        for idx, row in weekend_lower_outliers.iterrows():
+            print(f"Date: {row['date'].strftime('%Y-%m-%d')}, "
+                  f"Ridership: {row['ridership']:.0f}, "
+                  f"Day: {row['day_of_week']} "
+                  f"({(row['ridership'] - weekend_mean)/weekend_std:.2f}σ)")
+    else:
+        print("No weekend low outliers found below -3σ")
+    
+    # Create histograms
+    import matplotlib.pyplot as plt
+    
+    # Set up the figure
+    fig, axes = plt.subplots(1, 3, figsize=(18, 6))
+    
+    # Histogram for all days
+    axes[0].hist(mta_df['ridership'], bins=30, edgecolor='black', alpha=0.7)
+    axes[0].axvline(mta_df['ridership'].mean(), color='red', linestyle='-', linewidth=2, label='Overall Mean')
+    axes[0].set_title(f'MTA Ridership - All Days')
+    axes[0].set_xlabel('Ridership')
+    axes[0].set_ylabel('Frequency')
+    axes[0].legend()
+    
+    # Histogram for weekdays with thresholds
+    axes[1].hist(weekday_data['ridership'], bins=30, edgecolor='black', alpha=0.7, color='blue')
+    axes[1].axvline(weekday_mean, color='red', linestyle='-', linewidth=2, label='Weekday Mean')
+    axes[1].axvline(weekday_upper_threshold, color='orange', linestyle='--', linewidth=2, 
+                    label=f'+3σ ({weekday_upper_threshold:.0f})')
+    axes[1].axvline(weekday_lower_threshold, color='purple', linestyle='--', linewidth=2, 
+                    label=f'-3σ ({weekday_lower_threshold:.0f})')
+    axes[1].set_title(f'MTA Ridership - Weekdays\n({len(weekday_upper_outliers)} high, {len(weekday_lower_outliers)} low outliers)')
+    axes[1].set_xlabel('Ridership')
+    axes[1].set_ylabel('Frequency')
+    axes[1].legend()
+    
+    # Histogram for weekends with thresholds
+    axes[2].hist(weekend_data['ridership'], bins=30, edgecolor='black', alpha=0.7, color='green')
+    axes[2].axvline(weekend_mean, color='red', linestyle='-', linewidth=2, label='Weekend Mean')
+    axes[2].axvline(weekend_upper_threshold, color='orange', linestyle='--', linewidth=2, 
+                    label=f'+3σ ({weekend_upper_threshold:.0f})')
+    axes[2].axvline(weekend_lower_threshold, color='purple', linestyle='--', linewidth=2, 
+                    label=f'-3σ ({weekend_lower_threshold:.0f})')
+    axes[2].set_title(f'MTA Ridership - Weekends\n({len(weekend_upper_outliers)} high, {len(weekend_lower_outliers)} low outliers)')
+    axes[2].set_xlabel('Ridership')
+    axes[2].set_ylabel('Frequency')
+    axes[2].legend()
+    
+    plt.tight_layout()
+    plt.show()
+    
+    return ridehail_df, mta_df
+
 #Prepare the geodataframes for the subway stations and taxi zones, and optionally the subway lines, ensuring they are in the same coordinate reference system (CRS) for spatial analysis and mapping.
 def prepare_gdf_data(subway_station_csv_path = 'data/02-processed/map_files/MTA_Subway_Stations_cleaned.csv',
                     taxi_zones_geojson_path = 'data/02-processed/map_files/NYC_Taxi_Zones.geojson',

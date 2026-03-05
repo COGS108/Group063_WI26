@@ -21,6 +21,7 @@ from .utils import (
     find_stations_near_taxi_zone,
     prepare_gdf_data,
     prepare_ridership_data,
+    eliminate_ridership_outliers
 )
 from .data_cleaning import (
     clean_FHV_data,
