@@ -351,7 +351,7 @@ def plot_transit_map2(subway_stations_gdf, taxi_zones_gdf, subway_lines_gdf=None
     if buffer_miles > 0:
         print(f"   • Buffer radius: {buffer_miles} miles")
 
-def plot_heatmap_by_day(ridehail_df, taxi_zones_gdf, day_num, summary=False):
+def plot_ridehail_heatmap_by_day(ridehail_df, taxi_zones_gdf, day_num, summary=False):
     """
     Plot heatmap of HVFHV ridership by taxi zone for a specific day.
     
@@ -411,4 +411,155 @@ def plot_heatmap_by_day(ridehail_df, taxi_zones_gdf, day_num, summary=False):
         for idx, row in top.iterrows():
             print(f"  {row['zone']}: {row['avg_trip_count']:,.0f} avg trips")
 
+def plot_subway_heatmap_by_day(mta_df, subway_stations_gdf, taxi_zones_gdf, day_num, summary=False):
+    """
+    Plot heatmap of subway ridership by taxi zone for a specific day of week.
     
+    Parameters:
+    - mta_df: MTA subway dataframe with station_complex_id, date, and ridership
+    - taxi_zones_gdf: Taxi zones geodataframe
+    - day_num: 1-7 (1=Monday, 2=Tuesday, 3=Wednesday, 4=Thursday, 
+                     5=Friday, 6=Saturday, 7=Sunday)
+    - summary: If True, print summary stats (default False)
+    """
+    
+    # Map day number to name
+    days = {1:'Monday', 2:'Tuesday', 3:'Wednesday', 4:'Thursday', 
+            5:'Friday', 6:'Saturday', 7:'Sunday'}
+    day_name = days[day_num]
+    
+    
+    # Prepare subway stations with buffer to map to taxi zones
+    #print("\nMapping subway stations to taxi zones...")
+    
+    # Make a copy and ensure CRS
+    stations_gdf = subway_stations_gdf.copy()
+    if stations_gdf.crs is None:
+        stations_gdf = stations_gdf.set_crs('EPSG:4326')
+    
+    # Convert to projected CRS for buffering
+    stations_gdf = stations_gdf.to_crs('EPSG:3857')
+    taxi_zones_proj = taxi_zones_gdf.to_crs('EPSG:3857')
+    
+    # Create buffers (0.5 miles)
+    buffer_miles = 0.1
+    buffer_meters = buffer_miles * 1609.34
+    stations_gdf['buffer_geom'] = stations_gdf.geometry.buffer(buffer_meters)
+    
+    # Spatial join using buffers
+    stations_buffer = stations_gdf[['Complex ID', 'Stop Name', 'Borough']].copy()
+    stations_buffer = stations_buffer.set_geometry(stations_gdf['buffer_geom'])
+    stations_buffer.crs = stations_gdf.crs
+    
+    station_zone_mapping = gpd.sjoin(
+        stations_buffer,
+        taxi_zones_proj,
+        how='left',
+        predicate='intersects'
+    )
+    
+    # Remove duplicates
+    station_zone_mapping = station_zone_mapping.drop_duplicates(subset=['Complex ID', 'locationid'])
+    
+    # Prepare MTA data
+    mta_df['date'] = pd.to_datetime(mta_df['date'])
+    mta_df['day_of_week'] = mta_df['date'].dt.day_name()
+    mta_df['station_complex_id'] = mta_df['station_complex_id'].astype(str)
+    station_zone_mapping['Complex ID'] = station_zone_mapping['Complex ID'].astype(str)
+    station_zone_mapping['locationid'] = station_zone_mapping['locationid'].astype(str)
+    
+    # Filter for selected day
+    #print(f"\nFiltering for {day_name}...")
+    day_data = mta_df[mta_df['day_of_week'] == day_name]
+    
+    # Merge ridership with zone mapping
+    station_zone_ridership = station_zone_mapping.merge(
+        day_data,
+        left_on='Complex ID',
+        right_on='station_complex_id',
+        how='left'
+    )
+    
+    # Calculate average ridership by taxi zone for the selected day
+    #print("Calculating average ridership by zone...")
+    day_avg = station_zone_ridership.groupby('locationid').agg({
+        'ridership': 'mean'
+    }).reset_index()
+    day_avg.columns = ['locationid', 'avg_ridership']
+    day_avg['locationid'] = day_avg['locationid'].astype(str)
+    
+    # Merge with taxi zones
+    taxi_zones_gdf['locationid'] = taxi_zones_gdf['locationid'].astype(str)
+    zones_day = taxi_zones_gdf.merge(day_avg, on='locationid', how='left')
+    zones_day['avg_ridership'] = zones_day['avg_ridership'].fillna(0)
+    
+    # Keep only Manhattan zones
+    manhattan = zones_day[zones_day['borough'] == 'Manhattan'].copy()
+    
+    # Create map
+    #print("\nGenerating heatmap...")
+    fig, ax = plt.subplots(1, 1, figsize=(12, 12))
+    
+    manhattan.plot(column='avg_ridership', 
+                   ax=ax,
+                   legend=True,
+                   cmap='YlOrRd',
+                   edgecolor='black',
+                   linewidth=0.5,
+                   alpha=0.7,
+                   legend_kwds={'label': 'Avg Subway Ridership',
+                               'shrink': 0.6,
+                               'orientation': 'horizontal',
+                               'pad': 0.02})
+    
+    # Add subway station locations for context
+    manhattan_stations = stations_gdf[stations_gdf['Borough'] == 'Manhattan']
+    if len(manhattan_stations) > 0:
+        manhattan_stations.plot(ax=ax, 
+                               color='blue', 
+                               markersize=3, 
+                               alpha=0.5,
+                               label='Subway Stations')
+    
+    ax.set_title(f'MTA Subway Avg Ridership by Taxi Zone - {day_name} (Manhattan)', 
+                fontsize=14, fontweight='bold')
+    ax.set_axis_off()
+    
+    # Add buffer distance note
+    #ax.text(0.02, 0.02, f'Stations buffered by {buffer_miles} mile radius', 
+    #       transform=ax.transAxes, fontsize=9, style='italic',
+    #       bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+    
+    plt.tight_layout()
+    plt.show()
+    
+    # Optional summary
+    if summary:
+        print("\n" + "=" * 60)
+        print(f"{day_name} - MANHATTAN SUMMARY")
+        print("=" * 60)
+        
+        total_avg = manhattan['avg_ridership'].sum()
+        print(f"\nTotal average ridership: {total_avg:,.0f}")
+        
+        print(f"\nTop 5 zones by ridership:")
+        top = manhattan.nlargest(5, 'avg_ridership')[['zone', 'avg_ridership']]
+        for idx, row in top.iterrows():
+            print(f"  {row['zone']}: {row['avg_ridership']:,.0f} avg riders")
+        
+        # Only show bottom if there are zones with positive ridership
+        positive = manhattan[manhattan['avg_ridership'] > 0]
+        if len(positive) > 5:
+            print(f"\nBottom 5 zones (with positive ridership):")
+            bottom = positive.nsmallest(5, 'avg_ridership')[['zone', 'avg_ridership']]
+            for idx, row in bottom.iterrows():
+                print(f"  {row['zone']}: {row['avg_ridership']:,.0f} avg riders")
+        
+        # Count zones with no ridership
+        zero_zones = len(manhattan[manhattan['avg_ridership'] == 0])
+        if zero_zones > 0:
+            print(f"\nZones with no subway ridership: {zero_zones}")
+    
+    # Return data for further analysis
+    return None
+

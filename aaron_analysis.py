@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from datetime import datetime
-from modules import utils, maps, histogram
+from modules import graph, utils, maps
 
 """
 Simple histogram: Average ridership by day of week

@@ -10,7 +10,8 @@ from .maps import (
     plot_stations_near_taxi_zone,
     plot_transit_map,
     plot_transit_map2,
-    plot_heatmap_by_day
+    plot_ridehail_heatmap_by_day,
+    plot_subway_heatmap_by_day
 )
 
 from .graph import (
