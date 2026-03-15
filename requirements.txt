@@ -14,6 +14,11 @@ matplotlib
 seaborn
 xlrd
 
+# Geospatial analysis / mapping
+geopandas
+shapely
+pyproj
+
 # Modeling / stats (common for COGS108)
 scikit-learn
 statsmodels
