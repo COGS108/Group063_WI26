@@ -525,11 +525,6 @@ def plot_subway_heatmap_by_day(mta_df, subway_stations_gdf, taxi_zones_gdf, day_
                 fontsize=14, fontweight='bold')
     ax.set_axis_off()
     
-    # Add buffer distance note
-    #ax.text(0.02, 0.02, f'Stations buffered by {buffer_miles} mile radius', 
-    #       transform=ax.transAxes, fontsize=9, style='italic',
-    #       bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
-    
     plt.tight_layout()
     plt.show()
     
@@ -547,13 +542,53 @@ def plot_subway_heatmap_by_day(mta_df, subway_stations_gdf, taxi_zones_gdf, day_
         for idx, row in top.iterrows():
             print(f"  {row['zone']}: {row['avg_ridership']:,.0f} avg riders")
         
+        # Find the complexes in these top zones
+        print(f"\nComplex IDs in top zones:")
+        top_zone_names = top['zone'].tolist()
+        
+        # Get the mapping of zones to complexes
+        zone_complex_mapping = station_zone_ridership[station_zone_ridership['locationid'].isin(
+            manhattan.nlargest(5, 'avg_ridership')['locationid']
+        )]
+        
+        # Group by zone and list unique Complex IDs
+        for zone_name in top_zone_names:
+            zone_locid = manhattan[manhattan['zone'] == zone_name]['locationid'].values
+            if len(zone_locid) > 0:
+                complexes = zone_complex_mapping[zone_complex_mapping['locationid'] == zone_locid[0]]
+                unique_complexes = complexes[['Complex ID', 'Stop Name']].drop_duplicates()
+                if len(unique_complexes) > 0:
+                    print(f"\n  {zone_name}:")
+                    for _, row in unique_complexes.iterrows():
+                        print(f"    Complex {row['Complex ID']}: {row['Stop Name']}")
+        
         # Only show bottom if there are zones with positive ridership
-        positive = manhattan[manhattan['avg_ridership'] > 0]
-        if len(positive) > 5:
-            print(f"\nBottom 5 zones (with positive ridership):")
-            bottom = positive.nsmallest(5, 'avg_ridership')[['zone', 'avg_ridership']]
-            for idx, row in bottom.iterrows():
-                print(f"  {row['zone']}: {row['avg_ridership']:,.0f} avg riders")
+    positive = manhattan[manhattan['avg_ridership'] > 0]
+    if len(positive) > 5:
+        print(f"\nBottom 5 zones (with positive ridership):")
+        bottom = positive.nsmallest(5, 'avg_ridership')[['zone', 'avg_ridership']]
+        for idx, row in bottom.iterrows():
+            print(f"  {row['zone']}: {row['avg_ridership']:,.0f} avg riders")
+        
+        # Find the complexes in these bottom zones
+        print(f"\nComplex IDs in bottom zones:")
+        bottom_zone_names = bottom['zone'].tolist()  # Fixed: bottom is the DataFrame
+        
+        # Get the mapping of zones to complexes - use bottom zones, not top zones
+        zone_complex_mapping = station_zone_ridership[station_zone_ridership['locationid'].isin(
+            manhattan[manhattan['zone'].isin(bottom_zone_names)]['locationid']  # Fixed: use bottom zones
+        )]
+        
+        # Group by zone and list unique Complex IDs
+        for zone_name in bottom_zone_names:
+            zone_locid = manhattan[manhattan['zone'] == zone_name]['locationid'].values
+            if len(zone_locid) > 0:
+                complexes = zone_complex_mapping[zone_complex_mapping['locationid'] == zone_locid[0]]
+                unique_complexes = complexes[['Complex ID', 'Stop Name']].drop_duplicates()
+                if len(unique_complexes) > 0:
+                    print(f"\n  {zone_name}:")
+                    for _, row in unique_complexes.iterrows():
+                        print(f"    Complex {row['Complex ID']}: {row['Stop Name']}")
         
         # Count zones with no ridership
         zero_zones = len(manhattan[manhattan['avg_ridership'] == 0])

@@ -6,7 +6,7 @@ import geopandas as gpd
 from shapely.geometry import Point, box
 from shapely.ops import unary_union
 from datetime import datetime
-from modules import utils, maps, histogram
+from modules import graph, utils, maps
 
 #Helper functions to prepare the dataframes that we need
 subway_stations_gdf, taxi_zones_gdf, subway_lines_gdf = utils.prepare_gdf_data()
