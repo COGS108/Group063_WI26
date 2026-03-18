@@ -57,7 +57,8 @@ def _build_namespace(load_default_data: bool = True) -> dict[str, object]:
 def setup_final_project_imports(
     target_globals: dict[str, object] | None = None,
     load_default_data: bool = True,
-) -> dict[str, object]:
+    return_namespace: bool = False,
+) -> dict[str, object] | None:
     """
     Load common imports for ``03-FinalProject.ipynb``.
 
@@ -69,5 +70,7 @@ def setup_final_project_imports(
     if target_globals is not None:
         target_globals.update(namespace)
 
-    return namespace
+    if return_namespace:
+        return namespace
 
+    return None
