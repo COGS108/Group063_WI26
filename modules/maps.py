@@ -351,7 +351,7 @@ def plot_transit_map2(subway_stations_gdf, taxi_zones_gdf, subway_lines_gdf=None
     if buffer_miles > 0:
         print(f"   • Buffer radius: {buffer_miles} miles")
 
-def plot_ridehail_heatmap_by_day(ridehail_df, taxi_zones_gdf, day_num, summary=False):
+def plot_ridehail_heatmap_by_day(ridehail_df, taxi_zones_gdf, day_num, vmax=20000, summary=False, save_path=None):
     """
     Plot heatmap of HVFHV ridership by taxi zone for a specific day.
     
@@ -359,7 +359,9 @@ def plot_ridehail_heatmap_by_day(ridehail_df, taxi_zones_gdf, day_num, summary=F
     - ridehail_df: HVFHV dataframe
     - taxi_zones_gdf: Taxi zones geodataframe
     - day_num: 1-7 (1=Monday, 2=Tuesday, 3=Wednesday, 4=Thursday, 5=Friday, 6=Saturday, 7=Sunday)
+    - vmax: Maximum value for color scale (default 20000 for ridehail)
     - summary: If True, print summary stats (default False)
+    - save_path: If provided, save the figure to this path
     """
     
     # Map day number to name
@@ -383,35 +385,58 @@ def plot_ridehail_heatmap_by_day(ridehail_df, taxi_zones_gdf, day_num, summary=F
     zones_day['avg_trip_count'] = zones_day['avg_trip_count'].fillna(0)
     manhattan = zones_day[zones_day['borough'] == 'Manhattan']
     
-    # Create map
+    # Create map with fixed scale
     fig, ax = plt.subplots(1, 1, figsize=(12, 12))
     
-    manhattan.plot(column='avg_trip_count', 
-                   ax=ax,
-                   legend=True,
-                   cmap='YlOrRd',
-                   edgecolor='black',
-                   linewidth=0.5,
-                   alpha=0.7,
-                   legend_kwds={'label': 'Avg Trip Count',
-                               'shrink': 0.6})
+    # Create a custom colorbar with fixed limits
+    import matplotlib.colors as colors
     
-    ax.set_title(f'HVFHV Avg Ridership - {day_name} (Manhattan)', fontsize=14, fontweight='bold')
+    # Use the same colormap but with fixed vmin/vmax
+    norm = colors.Normalize(vmin=0, vmax=vmax)
+    
+    plot = manhattan.plot(column='avg_trip_count', 
+                          ax=ax,
+                          norm=norm,
+                          cmap='YlOrRd',
+                          edgecolor='black',
+                          linewidth=0.5,
+                          alpha=0.7,
+                          legend=True,
+                          legend_kwds={'label': f'Avg Trip Count (0-{vmax})',
+                                      'shrink': 0.6,
+                                      'orientation': 'horizontal',
+                                      'pad': 0.02,
+                                      'extend': 'max'})  # Add arrow for values > vmax
+    
+    # Add title with day and max value info
+    max_val = manhattan['avg_trip_count'].max()
+    ax.set_title(f'Ridehail Avg Ridership - {day_name}', fontsize=14, fontweight='bold')
     ax.set_axis_off()
     
     plt.tight_layout()
+    
+    # Save if path provided
+    if save_path:
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        print(f"Saved: {save_path}")
+    
     plt.show()
     
     # Optional summary
     if summary:
         print(f"\n{day_name} - Manhattan Summary:")
         print(f"Total avg trips: {manhattan['avg_trip_count'].sum():,.0f}")
+        print(f"Maximum zone value: {max_val:,.0f}")
+        print(f"Zones capped at {vmax}: {(manhattan['avg_trip_count'] > vmax).sum()}")
         print("\nTop 5 zones:")
         top = manhattan.nlargest(5, 'avg_trip_count')[['zone', 'avg_trip_count']]
         for idx, row in top.iterrows():
-            print(f"  {row['zone']}: {row['avg_trip_count']:,.0f} avg trips")
+            capped = " (capped)" if row['avg_trip_count'] > vmax else ""
+            print(f"  {row['zone']}: {row['avg_trip_count']:,.0f}{capped}")
+    
+    return fig
 
-def plot_subway_heatmap_by_day(mta_df, subway_stations_gdf, taxi_zones_gdf, day_num, summary=False):
+def plot_subway_heatmap_by_day(mta_df, subway_stations_gdf, taxi_zones_gdf, day_num, vmax=100000, summary=False, save_path=None):
     """
     Plot heatmap of subway ridership by taxi zone for a specific day of week.
     
@@ -420,14 +445,15 @@ def plot_subway_heatmap_by_day(mta_df, subway_stations_gdf, taxi_zones_gdf, day_
     - taxi_zones_gdf: Taxi zones geodataframe
     - day_num: 1-7 (1=Monday, 2=Tuesday, 3=Wednesday, 4=Thursday, 
                      5=Friday, 6=Saturday, 7=Sunday)
+    - vmax: Maximum value for color scale (default 100000 for MTA)
     - summary: If True, print summary stats (default False)
+    - save_path: If provided, save the figure to this path
     """
     
     # Map day number to name
     days = {1:'Monday', 2:'Tuesday', 3:'Wednesday', 4:'Thursday', 
             5:'Friday', 6:'Saturday', 7:'Sunday'}
     day_name = days[day_num]
-    
     
     # Prepare subway stations with buffer to map to taxi zones
     #print("\nMapping subway stations to taxi zones...")
@@ -496,21 +522,25 @@ def plot_subway_heatmap_by_day(mta_df, subway_stations_gdf, taxi_zones_gdf, day_
     # Keep only Manhattan zones
     manhattan = zones_day[zones_day['borough'] == 'Manhattan'].copy()
     
-    # Create map
-    #print("\nGenerating heatmap...")
+    # Create map with fixed scale
     fig, ax = plt.subplots(1, 1, figsize=(12, 12))
+    
+    import matplotlib.colors as colors
+    norm = colors.Normalize(vmin=0, vmax=vmax)
     
     manhattan.plot(column='avg_ridership', 
                    ax=ax,
-                   legend=True,
+                   norm=norm,
                    cmap='YlOrRd',
                    edgecolor='black',
                    linewidth=0.5,
                    alpha=0.7,
-                   legend_kwds={'label': 'Avg Subway Ridership',
+                   legend=True,
+                   legend_kwds={'label': f'Avg Subway Ridership (0-{vmax:,.0f})',
                                'shrink': 0.6,
                                'orientation': 'horizontal',
-                               'pad': 0.02})
+                               'pad': 0.02,
+                               'extend': 'max'})
     
     # Add subway station locations for context
     manhattan_stations = stations_gdf[stations_gdf['Borough'] == 'Manhattan']
@@ -521,11 +551,18 @@ def plot_subway_heatmap_by_day(mta_df, subway_stations_gdf, taxi_zones_gdf, day_
                                alpha=0.5,
                                label='Subway Stations')
     
-    ax.set_title(f'MTA Subway Avg Ridership by Taxi Zone - {day_name} (Manhattan)', 
-                fontsize=14, fontweight='bold')
+    # Add title with day and max value info
+    max_val = manhattan['avg_ridership'].max()
+    ax.set_title(f'MTA Subway Avg Ridership - {day_name})', fontsize=14, fontweight='bold')
     ax.set_axis_off()
     
     plt.tight_layout()
+    
+    # Save if path provided
+    if save_path:
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        print(f"Saved: {save_path}")
+    
     plt.show()
     
     # Optional summary
@@ -536,11 +573,14 @@ def plot_subway_heatmap_by_day(mta_df, subway_stations_gdf, taxi_zones_gdf, day_
         
         total_avg = manhattan['avg_ridership'].sum()
         print(f"\nTotal average ridership: {total_avg:,.0f}")
+        print(f"Maximum zone value: {max_val:,.0f}")
+        print(f"Zones capped at {vmax:,.0f}: {(manhattan['avg_ridership'] > vmax).sum()}")
         
         print(f"\nTop 5 zones by ridership:")
         top = manhattan.nlargest(5, 'avg_ridership')[['zone', 'avg_ridership']]
         for idx, row in top.iterrows():
-            print(f"  {row['zone']}: {row['avg_ridership']:,.0f} avg riders")
+            capped = " (capped)" if row['avg_ridership'] > vmax else ""
+            print(f"  {row['zone']}: {row['avg_ridership']:,.0f}{capped}")
         
         # Find the complexes in these top zones
         print(f"\nComplex IDs in top zones:")
@@ -563,38 +603,293 @@ def plot_subway_heatmap_by_day(mta_df, subway_stations_gdf, taxi_zones_gdf, day_
                         print(f"    Complex {row['Complex ID']}: {row['Stop Name']}")
         
         # Only show bottom if there are zones with positive ridership
-    positive = manhattan[manhattan['avg_ridership'] > 0]
-    if len(positive) > 5:
-        print(f"\nBottom 5 zones (with positive ridership):")
-        bottom = positive.nsmallest(5, 'avg_ridership')[['zone', 'avg_ridership']]
-        for idx, row in bottom.iterrows():
-            print(f"  {row['zone']}: {row['avg_ridership']:,.0f} avg riders")
-        
-        # Find the complexes in these bottom zones
-        print(f"\nComplex IDs in bottom zones:")
-        bottom_zone_names = bottom['zone'].tolist()  # Fixed: bottom is the DataFrame
-        
-        # Get the mapping of zones to complexes - use bottom zones, not top zones
-        zone_complex_mapping = station_zone_ridership[station_zone_ridership['locationid'].isin(
-            manhattan[manhattan['zone'].isin(bottom_zone_names)]['locationid']  # Fixed: use bottom zones
-        )]
-        
-        # Group by zone and list unique Complex IDs
-        for zone_name in bottom_zone_names:
-            zone_locid = manhattan[manhattan['zone'] == zone_name]['locationid'].values
-            if len(zone_locid) > 0:
-                complexes = zone_complex_mapping[zone_complex_mapping['locationid'] == zone_locid[0]]
-                unique_complexes = complexes[['Complex ID', 'Stop Name']].drop_duplicates()
-                if len(unique_complexes) > 0:
-                    print(f"\n  {zone_name}:")
-                    for _, row in unique_complexes.iterrows():
-                        print(f"    Complex {row['Complex ID']}: {row['Stop Name']}")
-        
-        # Count zones with no ridership
-        zero_zones = len(manhattan[manhattan['avg_ridership'] == 0])
-        if zero_zones > 0:
-            print(f"\nZones with no subway ridership: {zero_zones}")
+        positive = manhattan[manhattan['avg_ridership'] > 0]
+        if len(positive) > 5:
+            print(f"\nBottom 5 zones (with positive ridership):")
+            bottom = positive.nsmallest(5, 'avg_ridership')[['zone', 'avg_ridership']]
+            for idx, row in bottom.iterrows():
+                capped = " (capped)" if row['avg_ridership'] > vmax else ""
+                print(f"  {row['zone']}: {row['avg_ridership']:,.0f}{capped}")
+            
+            # Find the complexes in these bottom zones
+            print(f"\nComplex IDs in bottom zones:")
+            bottom_zone_names = bottom['zone'].tolist()
+            
+            # Get the mapping of zones to complexes
+            zone_complex_mapping = station_zone_ridership[station_zone_ridership['locationid'].isin(
+                manhattan[manhattan['zone'].isin(bottom_zone_names)]['locationid']
+            )]
+            
+            # Group by zone and list unique Complex IDs
+            for zone_name in bottom_zone_names:
+                zone_locid = manhattan[manhattan['zone'] == zone_name]['locationid'].values
+                if len(zone_locid) > 0:
+                    complexes = zone_complex_mapping[zone_complex_mapping['locationid'] == zone_locid[0]]
+                    unique_complexes = complexes[['Complex ID', 'Stop Name']].drop_duplicates()
+                    if len(unique_complexes) > 0:
+                        print(f"\n  {zone_name}:")
+                        for _, row in unique_complexes.iterrows():
+                            print(f"    Complex {row['Complex ID']}: {row['Stop Name']}")
+            
+            # Count zones with no ridership
+            zero_zones = len(manhattan[manhattan['avg_ridership'] == 0])
+            if zero_zones > 0:
+                print(f"\nZones with no subway ridership: {zero_zones}")
     
-    # Return data for further analysis
-    return None
+    return fig
 
+def plot_ratio_heatmap_by_day(ridehail_df, mta_df, subway_stations_gdf, taxi_zones_gdf, day_num, vmax=2, save_path=None):
+    import numpy as np
+    import matplotlib.pyplot as plt
+    import matplotlib.colors as colors
+    import geopandas as gpd
+
+    # Day mapping
+    days = {1:'Monday', 2:'Tuesday', 3:'Wednesday', 4:'Thursday', 
+            5:'Friday', 6:'Saturday', 7:'Sunday'}
+    day_name = days[day_num]
+
+    # -------------------------
+    # RIDEHAIL PROCESSING
+    # -------------------------
+    ridehail_df['date'] = pd.to_datetime(ridehail_df['date'])
+    ridehail_df['day_of_week'] = ridehail_df['date'].dt.day_name()
+    ridehail_df['PULocationID'] = ridehail_df['PULocationID'].astype(str)
+
+    rh_day = ridehail_df[ridehail_df['day_of_week'] == day_name]
+    rh_avg = rh_day.groupby('PULocationID')['trip_count'].mean().reset_index()
+    rh_avg.columns = ['locationid', 'ridehail_avg']
+
+    # -------------------------
+    # SUBWAY PROCESSING (reuse your logic)
+    # -------------------------
+    stations_gdf = subway_stations_gdf.copy()
+    stations_gdf = stations_gdf.set_crs('EPSG:4326', allow_override=True).to_crs('EPSG:3857')
+    taxi_proj = taxi_zones_gdf.to_crs('EPSG:3857')
+
+    buffer_meters = 0.1 * 1609.34
+    stations_gdf['geometry'] = stations_gdf.geometry.buffer(buffer_meters)
+
+    station_zone = gpd.sjoin(
+        stations_gdf[['Complex ID', 'geometry']],
+        taxi_proj,
+        how='left',
+        predicate='intersects'
+    ).drop_duplicates(subset=['Complex ID', 'locationid'])
+
+    # Prep MTA
+    mta_df['date'] = pd.to_datetime(mta_df['date'])
+    mta_df['day_of_week'] = mta_df['date'].dt.day_name()
+    mta_df['station_complex_id'] = mta_df['station_complex_id'].astype(str)
+
+    station_zone['Complex ID'] = station_zone['Complex ID'].astype(str)
+    station_zone['locationid'] = station_zone['locationid'].astype(str)
+
+    mta_day = mta_df[mta_df['day_of_week'] == day_name]
+
+    merged = station_zone.merge(
+        mta_day,
+        left_on='Complex ID',
+        right_on='station_complex_id',
+        how='left'
+    )
+
+    mta_avg = merged.groupby('locationid')['ridership'].mean().reset_index()
+    mta_avg.columns = ['locationid', 'mta_avg']
+
+    # -------------------------
+    # COMBINE
+    # -------------------------
+    zones = taxi_zones_gdf.copy()
+    zones['locationid'] = zones['locationid'].astype(str)
+
+    combined = zones.merge(rh_avg, on='locationid', how='left')
+    combined = combined.merge(mta_avg, on='locationid', how='left')
+
+    combined['ridehail_avg'] = combined['ridehail_avg'].fillna(0)
+    combined['mta_avg'] = combined['mta_avg'].fillna(0)
+
+    # -------------------------
+    # RATIO (log)
+    # -------------------------
+    combined['log_ratio'] = np.log((combined['mta_avg'] + 1) / (combined['ridehail_avg'] + 1))
+
+    # Focus Manhattan
+    manhattan = combined[combined['borough'] == 'Manhattan']
+
+    # -------------------------
+    # PLOT
+    # -------------------------
+    fig, ax = plt.subplots(1, 1, figsize=(12, 12))
+
+    norm = colors.TwoSlopeNorm(vmin=-vmax, vcenter=0, vmax=vmax)
+
+    manhattan.plot(
+        column='log_ratio',
+        cmap='RdBu',   # red = MTA, blue = ridehail
+        norm=norm,
+        edgecolor='black',
+        linewidth=0.5,
+        legend=True,
+        legend_kwds={
+            'label': 'Log Ratio (MTA / Ridehail)',
+            'shrink': 0.6
+        },
+        ax=ax
+    )
+
+    ax.set_title(f'MTA vs Ridehail Ratio - {day_name}', fontsize=14, fontweight='bold')
+    ax.set_axis_off()
+
+    plt.tight_layout()
+
+    if save_path:
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+
+    plt.show()
+
+    return fig
+
+def plot_mode_share_heatmap_by_day(
+    ridehail_df, 
+    mta_df, 
+    subway_stations_gdf, 
+    taxi_zones_gdf, 
+    day_num, 
+    save_path=None,
+    summary=False
+):
+    import numpy as np
+    import matplotlib.pyplot as plt
+    import geopandas as gpd
+
+    # Day mapping
+    days = {1:'Monday', 2:'Tuesday', 3:'Wednesday', 4:'Thursday', 
+            5:'Friday', 6:'Saturday', 7:'Sunday'}
+    day_name = days[day_num]
+
+    # -------------------------
+    # RIDEHAIL PROCESSING
+    # -------------------------
+    ridehail_df['date'] = pd.to_datetime(ridehail_df['date'])
+    ridehail_df['day_of_week'] = ridehail_df['date'].dt.day_name()
+    ridehail_df['PULocationID'] = ridehail_df['PULocationID'].astype(str)
+
+    rh_day = ridehail_df[ridehail_df['day_of_week'] == day_name]
+    rh_avg = rh_day.groupby('PULocationID')['trip_count'].mean().reset_index()
+    rh_avg.columns = ['locationid', 'ridehail_avg']
+
+    # -------------------------
+    # SUBWAY PROCESSING
+    # -------------------------
+    stations_gdf = subway_stations_gdf.copy()
+    stations_gdf = stations_gdf.set_crs('EPSG:4326', allow_override=True).to_crs('EPSG:3857')
+    taxi_proj = taxi_zones_gdf.to_crs('EPSG:3857')
+
+    buffer_meters = 0.1 * 1609.34
+    stations_gdf['geometry'] = stations_gdf.geometry.buffer(buffer_meters)
+
+    station_zone = gpd.sjoin(
+        stations_gdf[['Complex ID', 'geometry']],
+        taxi_proj,
+        how='left',
+        predicate='intersects'
+    ).drop_duplicates(subset=['Complex ID', 'locationid'])
+
+    # Prep MTA
+    mta_df['date'] = pd.to_datetime(mta_df['date'])
+    mta_df['day_of_week'] = mta_df['date'].dt.day_name()
+    mta_df['station_complex_id'] = mta_df['station_complex_id'].astype(str)
+
+    station_zone['Complex ID'] = station_zone['Complex ID'].astype(str)
+    station_zone['locationid'] = station_zone['locationid'].astype(str)
+
+    mta_day = mta_df[mta_df['day_of_week'] == day_name]
+
+    merged = station_zone.merge(
+        mta_day,
+        left_on='Complex ID',
+        right_on='station_complex_id',
+        how='left'
+    )
+
+    mta_avg = merged.groupby('locationid')['ridership'].mean().reset_index()
+    mta_avg.columns = ['locationid', 'mta_avg']
+
+    # -------------------------
+    # COMBINE
+    # -------------------------
+    zones = taxi_zones_gdf.copy()
+    zones['locationid'] = zones['locationid'].astype(str)
+
+    combined = zones.merge(rh_avg, on='locationid', how='left')
+    combined = combined.merge(mta_avg, on='locationid', how='left')
+
+    combined['ridehail_avg'] = combined['ridehail_avg'].fillna(0)
+    combined['mta_avg'] = combined['mta_avg'].fillna(0)
+
+    # -------------------------
+    # MODE SHARE
+    # -------------------------
+    combined['total'] = combined['ridehail_avg'] + combined['mta_avg']
+
+    # Avoid division by zero
+    combined['ridehail_share'] = np.where(
+        combined['total'] > 0,
+        combined['ridehail_avg'] / combined['total'],
+        0
+    )
+
+    # Focus Manhattan
+    manhattan = combined[combined['borough'] == 'Manhattan']
+
+    # -------------------------
+    # PLOT
+    # -------------------------
+    fig, ax = plt.subplots(1, 1, figsize=(12, 12))
+
+    manhattan.plot(
+        column='ridehail_share',
+        cmap='viridis',   # nice gradient from low → high
+        vmin=0,
+        vmax=1,
+        edgecolor='black',
+        linewidth=0.5,
+        legend=True,
+        legend_kwds={
+            'label': 'Ride-hailing Mode Share (0 = MTA, 1 = Ridehail)',
+            'shrink': 0.6
+        },
+        ax=ax
+    )
+
+    ax.set_title(f'Ride-hailing Mode Share - {day_name}', fontsize=14, fontweight='bold')
+    ax.set_axis_off()
+
+    plt.tight_layout()
+
+    if save_path:
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+
+    plt.show()
+
+    # -------------------------
+    # SUMMARY
+    # -------------------------
+    if summary:
+        print(f"\n{day_name} - Mode Share Summary")
+        print("=" * 40)
+
+        print(f"Average ridehail share: {manhattan['ridehail_share'].mean():.2f}")
+
+        print("\nTop 5 ridehail-dominant zones:")
+        top = manhattan.nlargest(5, 'ridehail_share')[['zone', 'ridehail_share']]
+        for _, row in top.iterrows():
+            print(f"  {row['zone']}: {row['ridehail_share']:.2f}")
+
+        print("\nTop 5 MTA-dominant zones:")
+        bottom = manhattan.nsmallest(5, 'ridehail_share')[['zone', 'ridehail_share']]
+        for _, row in bottom.iterrows():
+            print(f"  {row['zone']}: {row['ridehail_share']:.2f}")
+
+    return fig

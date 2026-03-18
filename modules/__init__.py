@@ -11,7 +11,9 @@ from .maps import (
     plot_transit_map,
     plot_transit_map2,
     plot_ridehail_heatmap_by_day,
-    plot_subway_heatmap_by_day
+    plot_subway_heatmap_by_day,
+    plot_ratio_heatmap_by_day,
+    plot_mode_share_heatmap_by_day
 )
 
 from .graph import (
