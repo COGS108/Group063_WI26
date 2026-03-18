@@ -399,104 +399,424 @@ def compare_multiple_daily(df_combined, df_mta, zone_ids, station_ids,
     
     return fig, (ax1, ax2)
 
-def plot_ridership_histogram(mta_df, ridehail_df):    
-    # Aggregate by date
+def plot_ridership_histogram(mta_df, ridehail_df, plot_type='both'):
+    """
+    Plot ridership analysis with option to choose plot type
+    
+    Parameters:
+    -----------
+    plot_type: str - 'bar', 'correlation', or 'both'
+    """
+    from scipy import stats
+    
+    # Data preparation (same for both)
     mta_agg = mta_df.groupby('date').agg({'ridership': 'sum'}).reset_index()
     hvfhv_agg = ridehail_df.groupby('date').agg({'trip_count': 'sum'}).reset_index()
 
-    # Merge the datasets into one
     merged_df = pd.merge(mta_agg, hvfhv_agg, on='date', how='inner')
     merged_df.columns = ['date', 'mta_ridership', 'hvfhv_trips']
     merged_df['date'] = pd.to_datetime(merged_df['date'])
-
-    # Add day of week column
     merged_df['day_of_week'] = merged_df['date'].dt.day_name()
-
-    # Order days correctly
+    
     day_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+    
+    if plot_type == 'bar' or plot_type == 'both':
+        # Bar chart
+        dow_avg = merged_df.groupby('day_of_week')[['mta_ridership', 'hvfhv_trips']].mean().reindex(day_order)
+        
+        fig, ax = plt.subplots(figsize=(12, 6))
+        x = np.arange(len(day_order))
+        width = 0.35
+        
+        bars1 = ax.bar(x - width/2, dow_avg['mta_ridership'], width, 
+                       label='MTA', color='blue', alpha=0.7, edgecolor='black')
+        bars2 = ax.bar(x + width/2, dow_avg['hvfhv_trips'], width, 
+                       label='HVFHV', color='orange', alpha=0.7, edgecolor='black')
+        
+        ax.set_xlabel('Day of Week', fontsize=12)
+        ax.set_ylabel('Average Daily Ridership', fontsize=12)
+        ax.set_title('Average Ridership by Day of Week', fontsize=14, fontweight='bold')
+        ax.set_xticks(x)
+        ax.set_xticklabels(day_order, rotation=45)
+        ax.legend()
+        ax.grid(True, alpha=0.3, axis='y')
+        
+        for bars in [bars1, bars2]:
+            for bar in bars:
+                height = bar.get_height()
+                ax.text(bar.get_x() + bar.get_width()/2., height,
+                        f'{int(height/1000)}K', ha='center', va='bottom', fontsize=9)
+        
+        plt.tight_layout()
+        plt.show()
+    
+    if plot_type == 'correlation' or plot_type == 'both':
+        # Correlation plot
+        dow_corr = {}
+        dow_pvalue = {}
+        for day in day_order:
+            day_data = merged_df[merged_df['day_of_week'] == day]
+            if len(day_data) > 1:
+                corr, pval = stats.pearsonr(day_data['hvfhv_trips'], day_data['mta_ridership'])
+                dow_corr[day] = corr
+                dow_pvalue[day] = pval
+        
+        fig, ax = plt.subplots(figsize=(12, 6))
+        x = np.arange(len(day_order))
+        corr_values = [dow_corr.get(day, np.nan) for day in day_order]
+        
+        colors = ['green' if abs(c) > 0.5 else 'orange' if abs(c) > 0.3 else 'red' for c in corr_values]
+        bars = ax.bar(x, corr_values, color=colors, alpha=0.7, edgecolor='black')
+        
+        ax.axhline(y=0, color='black', linestyle='-', linewidth=0.5)
+        ax.axhline(y=0.3, color='gray', linestyle='--', linewidth=0.5, alpha=0.5)
+        ax.axhline(y=-0.3, color='gray', linestyle='--', linewidth=0.5, alpha=0.5)
+        
+        ax.set_xlabel('Day of Week', fontsize=12)
+        ax.set_ylabel('Correlation Coefficient', fontsize=12)
+        ax.set_title('Correlation by Day of Week', fontsize=14, fontweight='bold')
+        ax.set_xticks(x)
+        ax.set_xticklabels(day_order, rotation=45)
+        ax.set_ylim([-1, 1])
+        ax.grid(True, alpha=0.3, axis='y')
+        
+        # Add values and significance
+        for i, (bar, day) in enumerate(zip(bars, day_order)):
+            if day in dow_corr:
+                height = bar.get_height()
+                ax.text(bar.get_x() + bar.get_width()/2., 
+                        height + (0.05 if height >= 0 else -0.1),
+                        f'{dow_corr[day]:.2f}', ha='center', fontsize=10, fontweight='bold')
+        
+        plt.tight_layout()
+        plt.show()
 
-    # Calculate average ridership by day of week
-    dow_avg = merged_df.groupby('day_of_week')[['mta_ridership', 'hvfhv_trips']].mean().reindex(day_order)
+# Usage:
+# plot_ridership_analysis(mta_df, ridehail_df, plot_type='bar')
+# plot_ridership_analysis(mta_df, ridehail_df, plot_type='correlation')
+# plot_ridership_analysis(mta_df, ridehail_df, plot_type='both')
+
+def plot_mta_vs_ridehail_daily(mta_df, ridehail_df):
+    """
+    Plot 1: Daily time series comparison of MTA vs HVFHV
+    """
+    from scipy import stats
+    
+    # Aggregate by date
+    ridehail_daily = ridehail_df.groupby('date')['trip_count'].sum().reset_index()
+    mta_daily = mta_df.groupby('date')['ridership'].sum().reset_index()
+
+    # Merge
+    daily_df = pd.merge(ridehail_daily, mta_daily, on='date')
+    daily_df['date'] = pd.to_datetime(daily_df['date'])
+    daily_df = daily_df.sort_values('date')
+    
+    # Calculate overall correlation
+    overall_corr, overall_p = stats.pearsonr(daily_df['trip_count'], daily_df['ridership'])
+
+    # FIRST PLOT: Daily time series
+    fig1, ax1 = plt.subplots(figsize=(15, 6))
+
+    # Plot MTA on primary axis (left)
+    color1 = 'tab:blue'
+    ax1.set_xlabel('Date', fontsize=12)
+    ax1.set_ylabel('MTA Ridership', color=color1, fontsize=12)
+    line1 = ax1.plot(daily_df['date'], daily_df['ridership'], color=color1, 
+                     linewidth=1.5, alpha=0.8, label='MTA')
+    ax1.tick_params(axis='y', labelcolor=color1)
+    ax1.grid(True, alpha=0.3)
+
+    # Create secondary axis for HVFHV (right)
+    ax1_twin = ax1.twinx()
+    color2 = 'tab:orange'
+    ax1_twin.set_ylabel('HVFHV Trips', color=color2, fontsize=12)
+    line2 = ax1_twin.plot(daily_df['date'], daily_df['trip_count'], color=color2, 
+                          linewidth=1.5, alpha=0.8, label='HVFHV')
+    ax1_twin.tick_params(axis='y', labelcolor=color2)
+
+    # Add title and legend
+    ax1.set_title(f'MTA vs HVFHV Daily Ridership\nOverall Correlation: {overall_corr:.3f} (p-value: {overall_p:.4f})', 
+                  fontsize=14, fontweight='bold', pad=20)
+
+    # Combine legends
+    lines = line1 + line2
+    labels = [l.get_label() for l in lines]
+    ax1.legend(lines, labels, loc='upper left')
+
+    plt.tight_layout()
+    plt.show()
+    
+    # Print statistics for first plot
+    print(f"\n📊 Daily Time Series Analysis:")
+    print("=" * 50)
+    print(f"Overall Pearson correlation: {overall_corr:.4f}")
+    print(f"P-value: {overall_p:.4f}")
+    
+    if overall_p < 0.001:
+        print("Significance: *** (p < 0.001)")
+    elif overall_p < 0.01:
+        print("Significance: ** (p < 0.01)")
+    elif overall_p < 0.05:
+        print("Significance: * (p < 0.05)")
+    else:
+        print("Significance: Not significant (p >= 0.05)")
+    
+    return fig1
 
 
-    # Create the histogram
-    fig, ax = plt.subplots(figsize=(12, 6))
+def plot_rolling_correlation(mta_df, ridehail_df, window=30):
+    """
+    Plot 2: Rolling correlation between MTA and HVFHV
+    
+    Parameters:
+    -----------
+    window: int - Number of days for rolling window (default=30)
+    """
+    from scipy import stats
+    
+    # Aggregate by date
+    ridehail_daily = ridehail_df.groupby('date')['trip_count'].sum().reset_index()
+    mta_daily = mta_df.groupby('date')['ridership'].sum().reset_index()
 
-    x = np.arange(len(day_order))
-    width = 0.35
+    # Merge
+    daily_df = pd.merge(ridehail_daily, mta_daily, on='date')
+    daily_df['date'] = pd.to_datetime(daily_df['date'])
+    daily_df = daily_df.sort_values('date')
+    
+    # Calculate rolling correlation
+    daily_df['rolling_corr'] = daily_df['trip_count'].rolling(window=window).corr(daily_df['ridership'])
+    
+    # Calculate overall correlation
+    overall_corr, overall_p = stats.pearsonr(daily_df['trip_count'], daily_df['ridership'])
 
-    # Create bars
-    bars1 = ax.bar(x - width/2, dow_avg['mta_ridership'], width, 
-                label='MTA', color='blue', alpha=0.7, edgecolor='black')
-    bars2 = ax.bar(x + width/2, dow_avg['hvfhv_trips'], width, 
-                label='HVFHV', color='orange', alpha=0.7, edgecolor='black')
+    # SECOND PLOT: Rolling correlation
+    fig2, ax2 = plt.subplots(figsize=(15, 6))
 
-    # Customize the plot
-    ax.set_xlabel('Day of Week', fontsize=12)
-    ax.set_ylabel('Average Daily Ridership', fontsize=12)
-    ax.set_title('Average Ridership by Day of Week: MTA vs HVFHV', fontsize=14, fontweight='bold')
-    ax.set_xticks(x)
-    ax.set_xticklabels(day_order)
-    ax.legend()
-    ax.grid(True, alpha=0.3, axis='y')
-
-    # Add value labels on bars
-    for bars in [bars1, bars2]:
-        for bar in bars:
-            height = bar.get_height()
-            ax.text(bar.get_x() + bar.get_width()/2., height,
-                    f'{int(height/1000)}K', ha='center', va='bottom', fontsize=9)
+    ax2.plot(daily_df['date'], daily_df['rolling_corr'], color='purple', linewidth=2)
+    ax2.axhline(y=overall_corr, color='gray', linestyle='--', alpha=0.7, label=f'Overall: {overall_corr:.3f}')
+    ax2.axhline(y=0, color='black', linestyle='-', linewidth=0.5)
+    
+    # Add colored fills for positive/negative correlation
+    ax2.fill_between(daily_df['date'], 0, daily_df['rolling_corr'], 
+                     where=(daily_df['rolling_corr'] > 0), color='green', alpha=0.3, 
+                     label='Positive correlation')
+    ax2.fill_between(daily_df['date'], 0, daily_df['rolling_corr'], 
+                     where=(daily_df['rolling_corr'] < 0), color='red', alpha=0.3,
+                     label='Negative correlation')
+    
+    # Add reference lines for correlation strength
+    ax2.axhline(y=0.5, color='gray', linestyle=':', alpha=0.5, label='Strong correlation (0.5)')
+    ax2.axhline(y=-0.5, color='gray', linestyle=':', alpha=0.5)
+    ax2.axhline(y=0.3, color='lightgray', linestyle='--', alpha=0.5, label='Moderate correlation (0.3)')
+    ax2.axhline(y=-0.3, color='lightgray', linestyle='--', alpha=0.5)
+    
+    ax2.set_xlabel('Date', fontsize=12)
+    ax2.set_ylabel(f'{window}-Day Rolling Correlation', fontsize=12)
+    ax2.set_title(f'Rolling Correlation: MTA vs HVFHV ({window}-day window)', 
+                  fontsize=14, fontweight='bold')
+    ax2.set_ylim([-1, 1])
+    ax2.grid(True, alpha=0.3)
+    ax2.legend(loc='upper right', ncol=2)
 
     plt.tight_layout()
     plt.show()
 
-def plot_mta_vs_ridehail_daily_df(mta_df, ridehail_df):
-        """
-        Line plot comparing MTA and HVFHV ridership over time
-        """
-        #print(ridehail_df.columns)
-        # Aggregate by date
-        ridehail_daily_df = ridehail_df.groupby('date')['trip_count'].sum().reset_index()
-        mta_daily = mta_df.groupby('date')['ridership'].sum().reset_index()
-
-        # Merge
-        daily_df = pd.merge(ridehail_daily_df, mta_daily, on='date')
-        daily_df['date'] = pd.to_datetime(daily_df['date'])
-        daily_df = daily_df.sort_values('date')
-
-        # Create figure with dual y-axis
-        fig, ax1 = plt.subplots(figsize=(15, 6))
-
-        # Plot MTA on primary axis (left)
-        color = 'tab:blue'
-        ax1.set_xlabel('Date', fontsize=12)
-        ax1.set_ylabel('MTA Ridership', color=color, fontsize=12)
-        ax1.plot(daily_df['date'], daily_df['ridership'], color=color, 
-                linewidth=1.5, alpha=0.8, label='MTA')
-        ax1.tick_params(axis='y', labelcolor=color)
-        ax1.grid(True, alpha=0.3)
-
-        # Create secondary axis for HVFHV (right)
-        ax2 = ax1.twinx()
-        color = 'tab:orange'
-        ax2.set_ylabel('HVFHV Trips', color=color, fontsize=12)
-        ax2.plot(daily_df['date'], daily_df['trip_count'], color=color, 
-                linewidth=1.5, alpha=0.8, label='HVFHV')
-        ax2.tick_params(axis='y', labelcolor=color)
-
-        # Add title and legend
-        plt.title('MTA vs HVFHV Daily Ridership Over Time', fontsize=16, fontweight='bold', pad=20)
-
-        # Combine legends from both axes
-        lines1, labels1 = ax1.get_legend_handles_labels()
-        lines2, labels2 = ax2.get_legend_handles_labels()
-        ax1.legend(lines1 + lines2, labels1 + labels2, loc='upper left')
-
-        plt.tight_layout()
-        plt.show()
+    # Print statistics for second plot
+    print(f"\n📊 Rolling Correlation Analysis ({window}-day window):")
+    print("=" * 50)
+    print(f"Rolling correlation statistics:")
+    print(f"  - Mean: {daily_df['rolling_corr'].mean():.4f}")
+    print(f"  - Std: {daily_df['rolling_corr'].std():.4f}")
+    print(f"  - Min: {daily_df['rolling_corr'].min():.4f}")
+    print(f"  - Max: {daily_df['rolling_corr'].max():.4f}")
+    print(f"  - % time positive: {(daily_df['rolling_corr'] > 0).mean() * 100:.1f}%")
+    print(f"  - % time strong (>0.5): {(daily_df['rolling_corr'].abs() > 0.5).mean() * 100:.1f}%")
+    
+    return fig2
 
 
-        #print(daily_df.columns)
-        # Print correlation
-        corr = daily_df['trip_count'].corr(daily_df['ridership'])
-        print(f"Overall correlation: {corr:.3f}")
+# Optional: Combined function that calls both
+def plot_mta_vs_ridehail_both(mta_df, ridehail_df, window=30):
+    """
+    Generate both plots: daily time series and rolling correlation
+    """
+    print("=" * 70)
+    print("PLOT 1: Daily Time Series Comparison")
+    print("=" * 70)
+    fig1 = plot_mta_vs_ridehail_daily(mta_df, ridehail_df)
+    
+    print("\n" + "=" * 70)
+    print(f"PLOT 2: Rolling Correlation ({window}-day window)")
+    print("=" * 70)
+    fig2 = plot_rolling_correlation(mta_df, ridehail_df, window)
+    
+    return fig1, fig2
+
+    
+def scatterplot_mta_vs_ridehail_daily(mta_df, ridehail_df):
+    from scipy import stats
+    import numpy as np
+    
+    # Aggregate by date
+    ridehail_daily = ridehail_df.groupby('date')['trip_count'].sum().reset_index()
+    mta_daily = mta_df.groupby('date')['ridership'].sum().reset_index()
+
+    # Merge datasets
+    df = pd.merge(ridehail_daily, mta_daily, on='date')
+    df['date'] = pd.to_datetime(df['date'])
+    df = df.sort_values('date')
+
+    # Define variables
+    x = df['trip_count']      # Ride-hailing
+    y = df['ridership']      # MTA
+    
+    # Calculate correlation and p-value
+    corr, p_value = stats.pearsonr(x, y)
+    
+    # Calculate regression line with confidence intervals
+    slope, intercept, r_value, p_value_reg, std_err = stats.linregress(x, y)
+    
+    # Create scatter plot
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
+    
+    # First subplot: Scatter with regression
+    ax1.scatter(x, y, alpha=0.5, edgecolor='black', s=50)
+    
+    # Regression line
+    x_line = np.array([x.min(), x.max()])
+    y_line = slope * x_line + intercept
+    ax1.plot(x_line, y_line, 'r-', linewidth=2, label=f'Regression (R²={r_value**2:.3f})')
+    
+    # Add confidence interval (95%)
+    n = len(x)
+    x_mean = x.mean()
+    t_value = stats.t.ppf(0.975, n-2)  # 95% confidence
+    
+    # Calculate prediction interval
+    x_pred = np.linspace(x.min(), x.max(), 100)
+    y_pred = slope * x_pred + intercept
+    
+    # Standard error of prediction
+    se_pred = std_err * np.sqrt(1/n + (x_pred - x_mean)**2 / np.sum((x - x_mean)**2))
+    ci_upper = y_pred + t_value * se_pred
+    ci_lower = y_pred - t_value * se_pred
+    
+    ax1.fill_between(x_pred, ci_lower, ci_upper, color='red', alpha=0.1, label='95% CI')
+    
+    # Labels and title
+    ax1.set_xlabel('Ride-Hailing Trips (Daily)', fontsize=12)
+    ax1.set_ylabel('MTA Ridership (Daily)', fontsize=12)
+    ax1.set_title('Scatter Plot with Regression Line', fontsize=14, fontweight='bold')
+    
+    # Add statistics box
+    stats_text = f'Correlation: {corr:.3f}\nP-value: {p_value:.4f}\nR²: {r_value**2:.3f}\nSlope: {slope:.2f}'
+    if p_value < 0.001:
+        stats_text += '\nSignificance: ***'
+    elif p_value < 0.01:
+        stats_text += '\nSignificance: **'
+    elif p_value < 0.05:
+        stats_text += '\nSignificance: *'
+    
+    ax1.text(0.05, 0.95, stats_text,
+             transform=ax1.transAxes,
+             fontsize=10,
+             verticalalignment='top',
+             bbox=dict(boxstyle="round,pad=0.3", facecolor='white', alpha=0.8))
+    
+    ax1.legend(loc='lower right')
+    ax1.grid(True, alpha=0.3)
+    
+    # Second subplot: Residuals
+    residuals = y - (slope * x + intercept)
+    ax2.scatter(x, residuals, alpha=0.5, edgecolor='black', s=50)
+    ax2.axhline(y=0, color='red', linestyle='-', linewidth=2)
+    ax2.axhline(y=2*residuals.std(), color='orange', linestyle='--', alpha=0.7, label='±2σ')
+    ax2.axhline(y=-2*residuals.std(), color='orange', linestyle='--', alpha=0.7)
+    
+    ax2.set_xlabel('Ride-Hailing Trips (Daily)', fontsize=12)
+    ax2.set_ylabel('Residuals', fontsize=12)
+    ax2.set_title('Residual Plot', fontsize=14, fontweight='bold')
+    ax2.legend(loc='upper right')
+    ax2.grid(True, alpha=0.3)
+    
+    # Add residual statistics
+    residual_text = f'Residuals:\nMean: {residuals.mean():.2f}\nStd: {residuals.std():.2f}\nNormality test p: {stats.shapiro(residuals[:5000])[1]:.4f}'
+    ax2.text(0.05, 0.95, residual_text,
+             transform=ax2.transAxes,
+             fontsize=10,
+             verticalalignment='top',
+             bbox=dict(boxstyle="round,pad=0.3", facecolor='white', alpha=0.8))
+    
+    plt.tight_layout()
+    plt.show()
+
+    # Print detailed statistics
+    print(f"\n📊 Detailed Correlation Analysis:")
+    print("=" * 50)
+    print(f"Pearson correlation coefficient: {corr:.4f}")
+    print(f"P-value: {p_value:.4f}")
+    print(f"R-squared: {r_value**2:.4f}")
+    print(f"\nRegression equation: MTA = {slope:.2f} × HVFHV + {intercept:.2f}")
+    print(f"Standard error: {std_err:.4f}")
+    
+    # Significance interpretation
+    print(f"\nSignificance level:")
+    if p_value < 0.001:
+        print("  *** p < 0.001 (Highly significant)")
+    elif p_value < 0.01:
+        print("  ** p < 0.01 (Very significant)")
+    elif p_value < 0.05:
+        print("  * p < 0.05 (Significant)")
+    else:
+        print("  Not significant (p >= 0.05)")
+    
+    print(f"\nResidual analysis:")
+    print(f"  Mean: {residuals.mean():.4f} (should be close to 0)")
+    print(f"  Standard deviation: {residuals.std():.4f}")
+    print(f"  Normality test p-value: {stats.shapiro(residuals[:5000])[1]:.4f}")
+    """
+    Scatter plot comparing daily MTA ridership vs ride-hailing trips
+    with regression line and correlation.
+    """
+
+    # Aggregate by date
+    ridehail_daily = ridehail_df.groupby('date')['trip_count'].sum().reset_index()
+    mta_daily = mta_df.groupby('date')['ridership'].sum().reset_index()
+
+    # Merge datasets
+    df = pd.merge(ridehail_daily, mta_daily, on='date')
+    df['date'] = pd.to_datetime(df['date'])
+
+    # Sort (not required but cleaner)
+    df = df.sort_values('date')
+
+    # Define variables
+    x = df['trip_count']      # Ride-hailing
+    y = df['ridership']      # MTA
+
+    # Create plot
+    plt.figure(figsize=(10, 6))
+    plt.scatter(x, y, alpha=0.5, edgecolor='black')
+
+    # Regression line
+    m, b = np.polyfit(x, y, 1)
+    plt.plot(x, m*x + b, linewidth=2)
+
+    # Labels and title
+    plt.xlabel('Ride-Hailing Trips (Daily)', fontsize=12)
+    plt.ylabel('MTA Ridership (Daily)', fontsize=12)
+    plt.title('Scatter Plot: Ride-Hailing vs MTA Ridership', fontsize=14, fontweight='bold')
+
+    # Correlation
+    corr = x.corr(y)
+    plt.text(0.05, 0.95, f'Correlation: {corr:.3f}',
+             transform=plt.gca().transAxes,
+             fontsize=11,
+             bbox=dict(boxstyle="round,pad=0.3", facecolor='white', alpha=0.8))
+
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.show()
+
+    # Print correlation
+    print(f"📊 Correlation between ride-hailing and MTA ridership: {corr:.3f}")

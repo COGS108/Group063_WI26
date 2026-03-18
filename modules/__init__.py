@@ -19,7 +19,10 @@ from .graph import (
     compare_daily_patterns,
     compare_multiple_daily,
     plot_ridership_histogram,
-    plot_mta_vs_ridehail_daily_df
+    plot_mta_vs_ridehail_daily,
+    plot_rolling_correlation,
+    plot_mta_vs_ridehail_both,
+    scatterplot_mta_vs_ridehail_daily
 )
 from .utils import (
     find_stations_near_taxi_zone,
