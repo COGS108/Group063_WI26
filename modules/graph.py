@@ -63,7 +63,7 @@ def create_popularity_histogram(df_combined, df_mta, month):
                 ha='center', va='bottom', fontsize=9)
     
     plt.tight_layout()
-    plt.show()
+    #plt.show()
     
     # Print summary
     print(f"\n=== Month {month} Summary ===")
@@ -282,7 +282,7 @@ def compare_daily_patterns(df_combined, df_mta, zone_id, station_complex_id,
         plt.savefig(save_path, dpi=300, bbox_inches='tight')
         print(f"\n💾 Figure saved to: {save_path}")
     
-    plt.show()
+    #plt.show()
     
     return fig, (ax1, ax2, ax3)
 
@@ -397,7 +397,7 @@ def compare_multiple_daily(df_combined, df_mta, zone_ids, station_ids,
         plt.savefig(save_path, dpi=300, bbox_inches='tight')
         print(f"\n💾 Figure saved to: {save_path}")
     
-    plt.show()
+    #plt.show()
     
     return fig, (ax1, ax2)
 
@@ -795,7 +795,7 @@ def scatterplot_mta_vs_ridehail_daily(mta_df, ridehail_df, summary = False):
     plt.tight_layout()
     #plt.show()
 
-    if summary:
+    if summary == True:
         # Print detailed statistics
         print(f"\n📊 Detailed Correlation Analysis:")
         print("=" * 50)
