@@ -1013,13 +1013,21 @@ def plot_zonal_correlation_heatmap(mta_zones_df, ridehail_df, taxi_zones_gdf, mi
             elif row['p_value'] < 0.05:
                 stars = "*"
             
+            # Modified text to include zone ID
+            zone_name = row['zone']
+            zone_id = row['locationid']
+            
+            # Truncate long zone names
+            if len(zone_name) > 20:
+                zone_name = zone_name[:18] + "..."
+            
             ax.text(
                 centroid.x, centroid.y,
-                f"{row['zone']}\n{row['correlation']:.2f}{stars}",
+                f"{zone_name}\n(ID: {zone_id})\nr={row['correlation']:.2f}{stars}",
                 fontsize=7,
                 ha='center',
                 va='center',
-                bbox=dict(boxstyle="round,pad=0.2", facecolor='white', alpha=0.7, edgecolor=color, linewidth=1)
+                bbox=dict(boxstyle="round,pad=0.2", facecolor='white', alpha=0.8, edgecolor=color, linewidth=1.5)
             )
     
     # Add a legend for insufficient data
