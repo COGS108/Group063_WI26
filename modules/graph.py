@@ -4,7 +4,7 @@ import matplotlib.dates as mdates
 import numpy as np
 from datetime import datetime
 
-
+#Archive
 def create_popularity_histogram(df_combined, df_mta, month):
     """
     Create histograms comparing the most popular pickup zones and MTA stations for a given month.
@@ -72,6 +72,7 @@ def create_popularity_histogram(df_combined, df_mta, month):
     print(f"Busiest pickup zone: Zone {tlc_top.index[0]} ({tlc_top.values[0]:,.0f} trips)")
     print(f"Busiest MTA station: Station {mta_top.index[0]} ({mta_top.values[0]:,.0f} riders)")
 
+#Archive
 def compare_daily_patterns(df_combined, df_mta, zone_id, station_complex_id, 
                           start_date=None, end_date=None,
                           figsize=(15, 8), save_path=None):
@@ -285,6 +286,7 @@ def compare_daily_patterns(df_combined, df_mta, zone_id, station_complex_id,
     
     return fig, (ax1, ax2, ax3)
 
+#Archive
 def compare_multiple_daily(df_combined, df_mta, zone_ids, station_ids,
                           start_date=None, end_date=None,
                           figsize=(15, 10), save_path=None):
@@ -399,6 +401,7 @@ def compare_multiple_daily(df_combined, df_mta, zone_ids, station_ids,
     
     return fig, (ax1, ax2)
 
+
 def plot_ridership_histogram(mta_df, ridehail_df, plot_type='both'):
     """
     Plot ridership analysis with option to choose plot type
@@ -424,7 +427,7 @@ def plot_ridership_histogram(mta_df, ridehail_df, plot_type='both'):
         # Bar chart
         dow_avg = merged_df.groupby('day_of_week')[['mta_ridership', 'hvfhv_trips']].mean().reindex(day_order)
         
-        fig, ax = plt.subplots(figsize=(12, 6))
+        bar_fig, ax = plt.subplots(figsize=(12, 6))
         x = np.arange(len(day_order))
         width = 0.35
         
@@ -448,10 +451,10 @@ def plot_ridership_histogram(mta_df, ridehail_df, plot_type='both'):
                         f'{int(height/1000)}K', ha='center', va='bottom', fontsize=9)
         
         plt.tight_layout()
-        plt.show()
+        #plt.show()
     
     if plot_type == 'correlation' or plot_type == 'both':
-        # Correlation plot
+        # Correlation plot with p-values
         dow_corr = {}
         dow_pvalue = {}
         for day in day_order:
@@ -461,42 +464,86 @@ def plot_ridership_histogram(mta_df, ridehail_df, plot_type='both'):
                 dow_corr[day] = corr
                 dow_pvalue[day] = pval
         
-        fig, ax = plt.subplots(figsize=(12, 6))
+        corr_fig, ax = plt.subplots(figsize=(14, 7))  # Slightly wider for p-value annotations
         x = np.arange(len(day_order))
         corr_values = [dow_corr.get(day, np.nan) for day in day_order]
         
-        colors = ['green' if abs(c) > 0.5 else 'orange' if abs(c) > 0.3 else 'red' for c in corr_values]
+        # Color bars based on correlation strength and significance
+        colors = []
+        for i, day in enumerate(day_order):
+            if day in dow_corr:
+                pval = dow_pvalue[day]
+                corr = dow_corr[day]
+                # Dark green for strong significant correlation, lighter for non-significant
+                if pval < 0.01:
+                    colors.append('darkgreen' if abs(corr) > 0.5 else 'lightgreen')
+                elif pval < 0.05:
+                    colors.append('green' if abs(corr) > 0.5 else 'limegreen')
+                elif pval < 0.1:
+                    colors.append('orange' if abs(corr) > 0.3 else 'gold')
+                else:
+                    colors.append('lightcoral' if abs(corr) < 0.3 else 'salmon')
+            else:
+                colors.append('gray')
+        
         bars = ax.bar(x, corr_values, color=colors, alpha=0.7, edgecolor='black')
         
+        # Reference lines
         ax.axhline(y=0, color='black', linestyle='-', linewidth=0.5)
         ax.axhline(y=0.3, color='gray', linestyle='--', linewidth=0.5, alpha=0.5)
         ax.axhline(y=-0.3, color='gray', linestyle='--', linewidth=0.5, alpha=0.5)
         
         ax.set_xlabel('Day of Week', fontsize=12)
         ax.set_ylabel('Correlation Coefficient', fontsize=12)
-        ax.set_title('Correlation by Day of Week', fontsize=14, fontweight='bold')
+        ax.set_title('Correlation by Day of Week with P-Values', fontsize=14, fontweight='bold')
         ax.set_xticks(x)
         ax.set_xticklabels(day_order, rotation=45)
-        ax.set_ylim([-1, 1])
+        ax.set_ylim([-1.2, 1.3])  # Extra space at top for p-values
         ax.grid(True, alpha=0.3, axis='y')
         
-        # Add values and significance
+        # Add correlation values and p-values
         for i, (bar, day) in enumerate(zip(bars, day_order)):
             if day in dow_corr:
                 height = bar.get_height()
+                corr_val = dow_corr[day]
+                p_val = dow_pvalue[day]
+                
+                # Format p-value with scientific notation for very small values
+                if p_val < 0.001:
+                    p_text = f'p={p_val:.2e}'
+                else:
+                    p_text = f'p={p_val:.3f}'
+                
+                # Add correlation value on the bar
                 ax.text(bar.get_x() + bar.get_width()/2., 
-                        height + (0.05 if height >= 0 else -0.1),
-                        f'{dow_corr[day]:.2f}', ha='center', fontsize=10, fontweight='bold')
+                        height + (0.08 if height >= 0 else -0.15),
+                        f'r={corr_val:.2f}', ha='center', fontsize=10, fontweight='bold')
+                
+                # Add p-value below or above correlation value based on bar height
+                if height >= 0:
+                    y_pos = height + 0.15
+                else:
+                    y_pos = height - 0.08
+                
+                ax.text(bar.get_x() + bar.get_width()/2., y_pos,
+                        p_text, ha='center', fontsize=9, 
+                        style='italic', color='darkgray' if p_val < 0.05 else 'darkred')
+        
+        
         
         plt.tight_layout()
-        plt.show()
+        #plt.show()
+        
+        if plot_type == 'both':
+            return bar_fig, corr_fig
+        if plot_type == 'correlation':
+            return corr_fig
+        if plot_type == 'bar':
+            return bar_fig
 
-# Usage:
-# plot_ridership_analysis(mta_df, ridehail_df, plot_type='bar')
-# plot_ridership_analysis(mta_df, ridehail_df, plot_type='correlation')
-# plot_ridership_analysis(mta_df, ridehail_df, plot_type='both')
 
-def plot_mta_vs_ridehail_daily(mta_df, ridehail_df):
+
+def plot_mta_vs_ridehail_daily(mta_df, ridehail_df, summary = False):
     """
     Plot 1: Daily time series comparison of MTA vs HVFHV
     """
@@ -544,27 +591,28 @@ def plot_mta_vs_ridehail_daily(mta_df, ridehail_df):
     ax1.legend(lines, labels, loc='upper left')
 
     plt.tight_layout()
-    plt.show()
+    #plt.show()
     
-    # Print statistics for first plot
-    print(f"\n📊 Daily Time Series Analysis:")
-    print("=" * 50)
-    print(f"Overall Pearson correlation: {overall_corr:.4f}")
-    print(f"P-value: {overall_p:.4f}")
-    
-    if overall_p < 0.001:
-        print("Significance: *** (p < 0.001)")
-    elif overall_p < 0.01:
-        print("Significance: ** (p < 0.01)")
-    elif overall_p < 0.05:
-        print("Significance: * (p < 0.05)")
-    else:
-        print("Significance: Not significant (p >= 0.05)")
+    if summary:
+        # Print statistics for first plot
+        print(f"\n📊 Daily Time Series Analysis:")
+        print("=" * 50)
+        print(f"Overall Pearson correlation: {overall_corr:.4f}")
+        print(f"P-value: {overall_p:.4f}")
+        
+        if overall_p < 0.001:
+            print("Significance: *** (p < 0.001)")
+        elif overall_p < 0.01:
+            print("Significance: ** (p < 0.01)")
+        elif overall_p < 0.05:
+            print("Significance: * (p < 0.05)")
+        else:
+            print("Significance: Not significant (p >= 0.05)")
     
     return fig1
 
 
-def plot_rolling_correlation(mta_df, ridehail_df, window=30):
+def plot_rolling_correlation(mta_df, ridehail_df, window=30, summary = False):
     """
     Plot 2: Rolling correlation between MTA and HVFHV
     
@@ -619,18 +667,19 @@ def plot_rolling_correlation(mta_df, ridehail_df, window=30):
     ax2.legend(loc='upper right', ncol=2)
 
     plt.tight_layout()
-    plt.show()
+    #plt.show()
 
-    # Print statistics for second plot
-    print(f"\n📊 Rolling Correlation Analysis ({window}-day window):")
-    print("=" * 50)
-    print(f"Rolling correlation statistics:")
-    print(f"  - Mean: {daily_df['rolling_corr'].mean():.4f}")
-    print(f"  - Std: {daily_df['rolling_corr'].std():.4f}")
-    print(f"  - Min: {daily_df['rolling_corr'].min():.4f}")
-    print(f"  - Max: {daily_df['rolling_corr'].max():.4f}")
-    print(f"  - % time positive: {(daily_df['rolling_corr'] > 0).mean() * 100:.1f}%")
-    print(f"  - % time strong (>0.5): {(daily_df['rolling_corr'].abs() > 0.5).mean() * 100:.1f}%")
+    if summary:
+        # Print statistics for second plot
+        print(f"\n📊 Rolling Correlation Analysis ({window}-day window):")
+        print("=" * 50)
+        print(f"Rolling correlation statistics:")
+        print(f"  - Mean: {daily_df['rolling_corr'].mean():.4f}")
+        print(f"  - Std: {daily_df['rolling_corr'].std():.4f}")
+        print(f"  - Min: {daily_df['rolling_corr'].min():.4f}")
+        print(f"  - Max: {daily_df['rolling_corr'].max():.4f}")
+        print(f"  - % time positive: {(daily_df['rolling_corr'] > 0).mean() * 100:.1f}%")
+        print(f"  - % time strong (>0.5): {(daily_df['rolling_corr'].abs() > 0.5).mean() * 100:.1f}%")
     
     return fig2
 
@@ -640,20 +689,16 @@ def plot_mta_vs_ridehail_both(mta_df, ridehail_df, window=30):
     """
     Generate both plots: daily time series and rolling correlation
     """
-    print("=" * 70)
-    print("PLOT 1: Daily Time Series Comparison")
-    print("=" * 70)
+    #print("PLOT 1: Daily Time Series Comparison")
     fig1 = plot_mta_vs_ridehail_daily(mta_df, ridehail_df)
     
-    print("\n" + "=" * 70)
-    print(f"PLOT 2: Rolling Correlation ({window}-day window)")
-    print("=" * 70)
+    #print(f"PLOT 2: Rolling Correlation ({window}-day window)")
     fig2 = plot_rolling_correlation(mta_df, ridehail_df, window)
     
     return fig1, fig2
 
     
-def scatterplot_mta_vs_ridehail_daily(mta_df, ridehail_df):
+def scatterplot_mta_vs_ridehail_daily(mta_df, ridehail_df, summary = False):
     from scipy import stats
     import numpy as np
     
@@ -706,7 +751,7 @@ def scatterplot_mta_vs_ridehail_daily(mta_df, ridehail_df):
     # Labels and title
     ax1.set_xlabel('Ride-Hailing Trips (Daily)', fontsize=12)
     ax1.set_ylabel('MTA Ridership (Daily)', fontsize=12)
-    ax1.set_title('Scatter Plot with Regression Line', fontsize=14, fontweight='bold')
+    ax1.set_title('Ride Hailing vs MTA Scatter Plot', fontsize=14, fontweight='bold')
     
     # Add statistics box
     stats_text = f'Correlation: {corr:.3f}\nP-value: {p_value:.4f}\nR²: {r_value**2:.3f}\nSlope: {slope:.2f}'
@@ -748,75 +793,33 @@ def scatterplot_mta_vs_ridehail_daily(mta_df, ridehail_df):
              bbox=dict(boxstyle="round,pad=0.3", facecolor='white', alpha=0.8))
     
     plt.tight_layout()
-    plt.show()
+    #plt.show()
 
-    # Print detailed statistics
-    print(f"\n📊 Detailed Correlation Analysis:")
-    print("=" * 50)
-    print(f"Pearson correlation coefficient: {corr:.4f}")
-    print(f"P-value: {p_value:.4f}")
-    print(f"R-squared: {r_value**2:.4f}")
-    print(f"\nRegression equation: MTA = {slope:.2f} × HVFHV + {intercept:.2f}")
-    print(f"Standard error: {std_err:.4f}")
-    
-    # Significance interpretation
-    print(f"\nSignificance level:")
-    if p_value < 0.001:
-        print("  *** p < 0.001 (Highly significant)")
-    elif p_value < 0.01:
-        print("  ** p < 0.01 (Very significant)")
-    elif p_value < 0.05:
-        print("  * p < 0.05 (Significant)")
-    else:
-        print("  Not significant (p >= 0.05)")
-    
-    print(f"\nResidual analysis:")
-    print(f"  Mean: {residuals.mean():.4f} (should be close to 0)")
-    print(f"  Standard deviation: {residuals.std():.4f}")
-    print(f"  Normality test p-value: {stats.shapiro(residuals[:5000])[1]:.4f}")
-    """
-    Scatter plot comparing daily MTA ridership vs ride-hailing trips
-    with regression line and correlation.
-    """
+    if summary:
+        # Print detailed statistics
+        print(f"\n📊 Detailed Correlation Analysis:")
+        print("=" * 50)
+        print(f"Pearson correlation coefficient: {corr:.4f}")
+        print(f"P-value: {p_value:.4f}")
+        print(f"R-squared: {r_value**2:.4f}")
+        print(f"\nRegression equation: MTA = {slope:.2f} × HVFHV + {intercept:.2f}")
+        print(f"Standard error: {std_err:.4f}")
+        
+        # Significance interpretation
+        print(f"\nSignificance level:")
+        if p_value < 0.001:
+            print("  *** p < 0.001 (Highly significant)")
+        elif p_value < 0.01:
+            print("  ** p < 0.01 (Very significant)")
+        elif p_value < 0.05:
+            print("  * p < 0.05 (Significant)")
+        else:
+            print("  Not significant (p >= 0.05)")
+        
+        print(f"\nResidual analysis:")
+        print(f"  Mean: {residuals.mean():.4f} (should be close to 0)")
+        print(f"  Standard deviation: {residuals.std():.4f}")
+        print(f"  Normality test p-value: {stats.shapiro(residuals[:5000])[1]:.4f}")
 
-    # Aggregate by date
-    ridehail_daily = ridehail_df.groupby('date')['trip_count'].sum().reset_index()
-    mta_daily = mta_df.groupby('date')['ridership'].sum().reset_index()
 
-    # Merge datasets
-    df = pd.merge(ridehail_daily, mta_daily, on='date')
-    df['date'] = pd.to_datetime(df['date'])
-
-    # Sort (not required but cleaner)
-    df = df.sort_values('date')
-
-    # Define variables
-    x = df['trip_count']      # Ride-hailing
-    y = df['ridership']      # MTA
-
-    # Create plot
-    plt.figure(figsize=(10, 6))
-    plt.scatter(x, y, alpha=0.5, edgecolor='black')
-
-    # Regression line
-    m, b = np.polyfit(x, y, 1)
-    plt.plot(x, m*x + b, linewidth=2)
-
-    # Labels and title
-    plt.xlabel('Ride-Hailing Trips (Daily)', fontsize=12)
-    plt.ylabel('MTA Ridership (Daily)', fontsize=12)
-    plt.title('Scatter Plot: Ride-Hailing vs MTA Ridership', fontsize=14, fontweight='bold')
-
-    # Correlation
-    corr = x.corr(y)
-    plt.text(0.05, 0.95, f'Correlation: {corr:.3f}',
-             transform=plt.gca().transAxes,
-             fontsize=11,
-             bbox=dict(boxstyle="round,pad=0.3", facecolor='white', alpha=0.8))
-
-    plt.grid(True, alpha=0.3)
-    plt.tight_layout()
-    plt.show()
-
-    # Print correlation
-    print(f"📊 Correlation between ride-hailing and MTA ridership: {corr:.3f}")
+    return fig
