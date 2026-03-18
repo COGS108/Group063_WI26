@@ -360,3 +360,78 @@ def prepare_gdf_data(subway_station_csv_path = 'data/02-processed/map_files/MTA_
             return subway_gdf, taxi_zones_gdf, subway_lines_gdf
         
         return subway_gdf, taxi_zones_gdf
+
+
+def create_mta_zone_daily_df(mta_df, subway_stations_gdf, taxi_zones_gdf, buffer_miles=0.1):
+    import pandas as pd
+    import geopandas as gpd
+
+    # -------------------------
+    # COPY DATA
+    # -------------------------
+    mta_df = mta_df.copy()
+    stations = subway_stations_gdf.copy()
+    taxi_zones = taxi_zones_gdf.copy()
+
+    # -------------------------
+    # CLEAN TYPES
+    # -------------------------
+    mta_df['date'] = pd.to_datetime(mta_df['date'])
+    mta_df['station_complex_id'] = mta_df['station_complex_id'].astype(str)
+    stations['Complex ID'] = stations['Complex ID'].astype(str)
+    taxi_zones['locationid'] = taxi_zones['locationid'].astype(str)
+
+    # -------------------------
+    # CRS + BUFFER
+    # -------------------------
+    if stations.crs is None:
+        stations = stations.set_crs('EPSG:4326')
+
+    stations = stations.to_crs('EPSG:3857')
+    taxi_proj = taxi_zones.to_crs('EPSG:3857')
+
+    buffer_meters = buffer_miles * 1609.34
+    stations['geometry'] = stations.geometry.buffer(buffer_meters)
+
+    # -------------------------
+    # SPATIAL JOIN (station → zone)
+    # -------------------------
+    station_zone = gpd.sjoin(
+        stations[['Complex ID', 'geometry']],
+        taxi_proj[['locationid', 'geometry']],
+        how='left',
+        predicate='intersects'
+    )
+
+    # Remove duplicates (important)
+    station_zone = station_zone.drop_duplicates(subset=['Complex ID', 'locationid'])
+
+    station_zone['locationid'] = station_zone['locationid'].astype(str)
+
+    # -------------------------
+    # MERGE WITH MTA DATA
+    # -------------------------
+    merged = station_zone.merge(
+        mta_df,
+        left_on='Complex ID',
+        right_on='station_complex_id',
+        how='left'
+    )
+
+    # -------------------------
+    # AGGREGATE TO ZONE + DATE
+    # -------------------------
+    mta_zone_daily = (
+        merged
+        .groupby(['date', 'locationid'])['ridership']
+        .sum()
+        .reset_index()
+    )
+
+    # -------------------------
+    # ADD DAY FEATURES
+    # -------------------------
+    mta_zone_daily['day_of_week'] = mta_zone_daily['date'].dt.day_name()
+    mta_zone_daily['weekend'] = mta_zone_daily['day_of_week'].isin(['Saturday', 'Sunday'])
+
+    return mta_zone_daily

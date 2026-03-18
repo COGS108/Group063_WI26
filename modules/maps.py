@@ -1,11 +1,14 @@
 import pandas as pd
 import geopandas as gpd
+import seaborn as sns
+from scipy import stats
 from shapely.geometry import Point, box
 import numpy as np
 from shapely.ops import transform
 import pyproj
 from functools import partial
 from matplotlib import pyplot as plt
+import matplotlib.patches as mpatches
 
 
 #Allows visualization of stations within subway stations
@@ -47,10 +50,12 @@ def plot_stations_near_taxi_zone(stations_gdf, taxi_zones_gdf, taxi_zone_id, buf
     
     plt.legend()
     plt.title(f'Taxi Zone {taxi_zone_id} with {buffer_miles} mile buffer')
-    plt.show()
+    #plt.show()
+
+    return fig
 
 #Plots the transit map entirely
-#TODO: this function can be expanded to include more features
+
 def plot_transit_map(subway_stations_gdf, taxi_zones_gdf, subway_lines_gdf=None):
 
     fig, ax = plt.subplots(figsize=(15, 12))
@@ -93,11 +98,12 @@ def plot_transit_map(subway_stations_gdf, taxi_zones_gdf, subway_lines_gdf=None)
                 dpi=300,
                 bbox_inches='tight')
 
-    plt.show()
+    #plt.show()
+    return fig
 
 def plot_transit_map2(subway_stations_gdf, taxi_zones_gdf, subway_lines_gdf=None,
                     highlight_zones=None, highlight_stations=None,
-                    buffer_miles=0.25, figsize=(15, 12), save_path=None):
+                    buffer_miles=0.25, figsize=(15, 12), summary = False, save_path=None):
     """
     Plot NYC transit map with option to highlight specific taxi zones and stations.
     
@@ -340,16 +346,20 @@ def plot_transit_map2(subway_stations_gdf, taxi_zones_gdf, subway_lines_gdf=None
     else:
         plt.savefig('nyc_transit_map_highlighted.png', dpi=300, bbox_inches='tight')
     
-    plt.show()
+    #plt.show()
     
-    # Print summary
-    print("\n📊 Map Summary:")
-    if highlight_zones and 'highlighted_zones' in locals():
-        print(f"   • Highlighted zones: {', '.join(highlight_zones)} ({len(highlighted_zones)} features)")
-    if highlight_stations and 'highlighted_stations' in locals():
-        print(f"   • Highlighted stations: {', '.join(highlight_stations)} ({len(highlighted_stations)} stations)")
-    if buffer_miles > 0:
-        print(f"   • Buffer radius: {buffer_miles} miles")
+    
+    if summary:
+        # Print summary
+        print("\n📊 Map Summary:")
+        if highlight_zones and 'highlighted_zones' in locals():
+            print(f"   • Highlighted zones: {', '.join(highlight_zones)} ({len(highlighted_zones)} features)")
+        if highlight_stations and 'highlighted_stations' in locals():
+            print(f"   • Highlighted stations: {', '.join(highlight_stations)} ({len(highlighted_stations)} stations)")
+        if buffer_miles > 0:
+            print(f"   • Buffer radius: {buffer_miles} miles")
+            
+    return fig
 
 def plot_ridehail_heatmap_by_day(ridehail_df, taxi_zones_gdf, day_num, vmax=20000, summary=False, save_path=None):
     """
@@ -420,7 +430,7 @@ def plot_ridehail_heatmap_by_day(ridehail_df, taxi_zones_gdf, day_num, vmax=2000
         plt.savefig(save_path, dpi=300, bbox_inches='tight')
         print(f"Saved: {save_path}")
     
-    plt.show()
+    #plt.show()
     
     # Optional summary
     if summary:
@@ -563,7 +573,7 @@ def plot_subway_heatmap_by_day(mta_df, subway_stations_gdf, taxi_zones_gdf, day_
         plt.savefig(save_path, dpi=300, bbox_inches='tight')
         print(f"Saved: {save_path}")
     
-    plt.show()
+    #plt.show()
     
     # Optional summary
     if summary:
@@ -746,7 +756,7 @@ def plot_ratio_heatmap_by_day(ridehail_df, mta_df, subway_stations_gdf, taxi_zon
     if save_path:
         plt.savefig(save_path, dpi=300, bbox_inches='tight')
 
-    plt.show()
+    #plt.show()
 
     return fig
 
@@ -871,7 +881,7 @@ def plot_mode_share_heatmap_by_day(
     if save_path:
         plt.savefig(save_path, dpi=300, bbox_inches='tight')
 
-    plt.show()
+    #plt.show()
 
     # -------------------------
     # SUMMARY
@@ -893,3 +903,179 @@ def plot_mode_share_heatmap_by_day(
             print(f"  {row['zone']}: {row['ridehail_share']:.2f}")
 
     return fig
+
+def plot_zonal_correlation_heatmap(mta_zones_df, ridehail_df, taxi_zones_gdf, min_days=30, summary = False, save_path=None):
+    """
+    Plot correlation between MTA and ridehail on an actual NYC map.
+    Zones with insufficient data appear in light gray.
+    """
+    
+    
+    # Prepare data
+    ridehail_daily = ridehail_df.groupby(['date', 'PULocationID'])['trip_count'].sum().reset_index()
+    ridehail_daily['date'] = pd.to_datetime(ridehail_daily['date'])
+    ridehail_daily['PULocationID'] = ridehail_daily['PULocationID'].astype(str)
+    
+    mta_zones_df['date'] = pd.to_datetime(mta_zones_df['date'])
+    mta_zones_df['locationid'] = mta_zones_df['locationid'].astype(str)
+    taxi_zones_gdf['locationid'] = taxi_zones_gdf['locationid'].astype(str)
+    
+    # Calculate correlations for each zone
+    zones = mta_zones_df['locationid'].unique()
+    corr_data = []
+    
+    for zone in zones:
+        # Merge MTA and ridehail data for this zone
+        zone_mta = mta_zones_df[mta_zones_df['locationid'] == zone]
+        zone_ride = ridehail_daily[ridehail_daily['PULocationID'] == zone]
+        
+        merged = pd.merge(
+            zone_mta[['date', 'ridership']],
+            zone_ride[['date', 'trip_count']],
+            on='date',
+            how='inner'
+        )
+        
+        if len(merged) >= min_days:
+            corr, p_val = stats.pearsonr(merged['trip_count'], merged['ridership'])
+            corr_data.append({
+                'locationid': zone,
+                'correlation': corr,
+                'p_value': p_val,
+                'days': len(merged)
+            })
+        else:
+            # Include zone but mark as insufficient data
+            corr_data.append({
+                'locationid': zone,
+                'correlation': np.nan,
+                'p_value': np.nan,
+                'days': len(merged)
+            })
+    
+    # Create DataFrame
+    corr_df = pd.DataFrame(corr_data)
+    
+    # Merge with taxi zones
+    zones_with_corr = taxi_zones_gdf.merge(corr_df, on='locationid', how='left')
+    
+    # Focus Manhattan
+    manhattan = zones_with_corr[zones_with_corr['borough'] == 'Manhattan'].copy()
+    
+    # Create map
+    fig, ax = plt.subplots(1, 1, figsize=(14, 12))
+    
+    # First plot all zones in light gray (basemap)
+    manhattan.plot(
+        ax=ax,
+        color='lightgray',
+        edgecolor='black',
+        linewidth=0.3,
+        alpha=0.5
+    )
+    
+    # Then plot zones with valid correlations on top
+    valid_data = manhattan[manhattan['correlation'].notna()]
+    valid_data.plot(
+        column='correlation',
+        cmap='RdYlGn',  # Red (negative) to Yellow (neutral) to Green (positive)
+        vmin=-1,
+        vmax=1,
+        edgecolor='black',
+        linewidth=0.5,
+        alpha=0.8,
+        legend=True,
+        legend_kwds={
+            'label': 'MTA vs Ridehail Correlation',
+            'shrink': 0.6,
+            'orientation': 'horizontal',
+            'pad': 0.02,
+            'extend': 'both'
+        },
+        ax=ax
+    )
+    
+    # Add labels for extreme correlations
+    top_pos = valid_data.nlargest(5, 'correlation')
+    top_neg = valid_data.nsmallest(5, 'correlation')
+    
+    for idx, row in pd.concat([top_pos, top_neg]).iterrows():
+        if pd.notna(row['correlation']):
+            centroid = row.geometry.centroid
+            color = 'darkgreen' if row['correlation'] > 0.3 else 'darkred' if row['correlation'] < -0.3 else 'black'
+            
+            # Add significance stars
+            stars = ""
+            if row['p_value'] < 0.001:
+                stars = "***"
+            elif row['p_value'] < 0.01:
+                stars = "**"
+            elif row['p_value'] < 0.05:
+                stars = "*"
+            
+            ax.text(
+                centroid.x, centroid.y,
+                f"{row['zone']}\n{row['correlation']:.2f}{stars}",
+                fontsize=7,
+                ha='center',
+                va='center',
+                bbox=dict(boxstyle="round,pad=0.2", facecolor='white', alpha=0.7, edgecolor=color, linewidth=1)
+            )
+    
+    # Add a legend for insufficient data
+    from matplotlib.patches import Patch
+    legend_elements = [
+        Patch(facecolor='lightgray', edgecolor='black', alpha=0.5, label=f'Insufficient data (<{min_days} days)')
+    ]
+    ax.legend(handles=legend_elements, loc='lower right')
+    
+    ax.set_title(f'MTA vs Ridehail Correlation by Taxi Zone (Manhattan)\nZones with <{min_days} days shown in gray', 
+                 fontsize=16, fontweight='bold')
+    ax.set_axis_off()
+    
+    plt.tight_layout()
+    
+    if save_path:
+        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+    
+    #plt.show()
+    
+    if summary:
+        # Summary
+        valid = manhattan[manhattan['correlation'].notna()]
+        insufficient = manhattan[manhattan['correlation'].isna()]
+        
+        print(f"\n📊 Correlation Summary (Manhattan):")
+        print(f"Zones with sufficient data (≥{min_days} days): {len(valid)}")
+        print(f"Zones with insufficient data: {len(insufficient)}")
+        print(f"Mean correlation: {valid['correlation'].mean():.3f}")
+        print(f"Range: {valid['correlation'].min():.3f} to {valid['correlation'].max():.3f}")
+        
+        if len(insufficient) > 0:
+            print(f"\n⚠️ Zones with insufficient data:")
+            for idx, row in insufficient.iterrows():
+                print(f"  {row['zone']}: {row['days']} days")
+        
+        print("\n🔵 Strongest Positive Correlations (move together):")
+        for idx, row in top_pos.iterrows():
+            stars = ""
+            if row['p_value'] < 0.001:
+                stars = "***"
+            elif row['p_value'] < 0.01:
+                stars = "**"
+            elif row['p_value'] < 0.05:
+                stars = "*"
+            print(f"  {row['zone']}: {row['correlation']:.3f}{stars} ({row['days']} days)")
+        
+        print("\n🔴 Strongest Negative Correlations (move opposite):")
+        for idx, row in top_neg.iterrows():
+            stars = ""
+            if row['p_value'] < 0.001:
+                stars = "***"
+            elif row['p_value'] < 0.01:
+                stars = "**"
+            elif row['p_value'] < 0.05:
+                stars = "*"
+            print(f"  {row['zone']}: {row['correlation']:.3f}{stars} ({row['days']} days)")
+    
+    return fig, manhattan

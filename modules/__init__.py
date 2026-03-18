@@ -13,7 +13,8 @@ from .maps import (
     plot_ridehail_heatmap_by_day,
     plot_subway_heatmap_by_day,
     plot_ratio_heatmap_by_day,
-    plot_mode_share_heatmap_by_day
+    plot_mode_share_heatmap_by_day,
+    plot_zonal_correlation_heatmap
 )
 
 from .graph import (
@@ -30,7 +31,8 @@ from .utils import (
     find_stations_near_taxi_zone,
     prepare_gdf_data,
     prepare_ridership_data,
-    eliminate_ridership_outliers
+    eliminate_ridership_outliers,
+    create_mta_zone_daily_df
 )
 from .data_cleaning import (
     clean_FHV_data,

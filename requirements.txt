@@ -22,6 +22,7 @@ pyproj
 # Modeling / stats (common for COGS108)
 scikit-learn
 statsmodels
+scipy
 
 # Notebooks
 jupyter
