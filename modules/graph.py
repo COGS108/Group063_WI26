@@ -146,7 +146,7 @@ def compare_daily_patterns(df_combined, df_mta, zone_id, station_complex_id,
     color_tlc = '#1f77b4'  # Blue
     color_mta = '#ff7f0e'  # Orange
     
-    # 1️⃣ Top plot: TLC trips
+    # 1 Top plot: TLC trips
     ax1 = axes[0]
     if len(zone_daily) > 0:
         ax1.plot(zone_daily['date'], zone_daily['trip_count'], 
@@ -172,7 +172,7 @@ def compare_daily_patterns(df_combined, df_mta, zone_id, station_complex_id,
     ax1.xaxis.set_major_formatter(mdates.DateFormatter('%b %d'))
     ax1.xaxis.set_major_locator(mdates.WeekdayLocator(interval=2))
     
-    # 2️⃣ Middle plot: MTA ridership
+    # 2 Middle plot: MTA ridership
     ax2 = axes[1]
     if len(station_daily) > 0:
         ax2.plot(station_daily['date'], station_daily['ridership'], 
@@ -197,7 +197,7 @@ def compare_daily_patterns(df_combined, df_mta, zone_id, station_complex_id,
     ax2.xaxis.set_major_formatter(mdates.DateFormatter('%b %d'))
     ax2.xaxis.set_major_locator(mdates.WeekdayLocator(interval=2))
     
-    # 3️⃣ Bottom plot: Normalized comparison
+    # 3 Bottom plot: Normalized comparison
     ax3 = axes[2]
     
     if len(zone_daily) > 0 and len(station_daily) > 0:
@@ -238,11 +238,11 @@ def compare_daily_patterns(df_combined, df_mta, zone_id, station_complex_id,
     plt.tight_layout()
     
     # Print statistics
-    print(f"\n📊 Daily Comparison Statistics: Zone {zone_id} vs Station {station_id}")
+    print(f"\nDaily Comparison Statistics: Zone {zone_id} vs Station {station_id}")
     print("=" * 60)
     
     if len(zone_daily) > 0:
-        print(f"\n🚕 TLC Zone {zone_id} (All Services):")
+        print(f"\nTLC Zone {zone_id} (All Services):")
         print(f"  - Total trips: {zone_daily['trip_count'].sum():,.0f}")
         print(f"  - Daily average: {zone_daily['trip_count'].mean():,.1f}")
         print(f"  - Peak day: {zone_daily.loc[zone_daily['trip_count'].idxmax(), 'date'].strftime('%Y-%m-%d')} "
@@ -252,7 +252,7 @@ def compare_daily_patterns(df_combined, df_mta, zone_id, station_complex_id,
         print(f"  - Standard deviation: {zone_daily['trip_count'].std():,.1f}")
     
     if len(station_daily) > 0:
-        print(f"\n🚇 MTA Station {station_complex_id}:")
+        print(f"\nMTA Station {station_complex_id}:")
         print(f"  - Total ridership: {station_daily['ridership'].sum():,.0f}")
         print(f"  - Daily average: {station_daily['ridership'].mean():,.1f}")
         print(f"  - Peak day: {station_daily.loc[station_daily['ridership'].idxmax(), 'date'].strftime('%Y-%m-%d')} "
@@ -263,7 +263,7 @@ def compare_daily_patterns(df_combined, df_mta, zone_id, station_complex_id,
     
     # Day of week analysis
     if len(zone_daily) > 0 and len(station_daily) > 0:
-        print(f"\n📅 Day of Week Patterns:")
+        print(f"\n Day of Week Patterns:")
         
         zone_daily['dayofweek'] = zone_daily['date'].dt.dayofweek
         station_daily['dayofweek'] = station_daily['date'].dt.dayofweek
@@ -280,7 +280,7 @@ def compare_daily_patterns(df_combined, df_mta, zone_id, station_complex_id,
     
     if save_path:
         plt.savefig(save_path, dpi=300, bbox_inches='tight')
-        print(f"\n💾 Figure saved to: {save_path}")
+        print(f"\n Figure saved to: {save_path}")
     
     #plt.show()
     
@@ -381,21 +381,21 @@ def compare_multiple_daily(df_combined, df_mta, zone_ids, station_ids,
     plt.tight_layout()
     
     # Print summary
-    print(f"\n📊 Multiple Comparison Summary")
+    print(f"\nMultiple Comparison Summary")
     print("=" * 60)
     
     for zone_id in zone_ids:
         zone_total = tlc[tlc['PULocationID'] == str(zone_id)]['trip_count'].sum()
-        print(f"🚕 Zone {zone_id}: {zone_total:,.0f} total trips")
+        print(f"Zone {zone_id}: {zone_total:,.0f} total trips")
     
     print()
     for station_id in station_ids:
         station_total = mta[mta['station_complex_id'].astype(str) == str(station_id)]['ridership'].sum()
-        print(f"🚇 Station {station_id}: {station_total:,.0f} total riders")
+        print(f"Station {station_id}: {station_total:,.0f} total riders")
     
     if save_path:
         plt.savefig(save_path, dpi=300, bbox_inches='tight')
-        print(f"\n💾 Figure saved to: {save_path}")
+        print(f"\nFigure saved to: {save_path}")
     
     #plt.show()
     
@@ -595,7 +595,7 @@ def plot_mta_vs_ridehail_daily(mta_df, ridehail_df, summary = False):
     
     if summary:
         # Print statistics for first plot
-        print(f"\n📊 Daily Time Series Analysis:")
+        print(f"\nDaily Time Series Analysis:")
         print("=" * 50)
         print(f"Overall Pearson correlation: {overall_corr:.4f}")
         print(f"P-value: {overall_p:.4f}")
@@ -671,7 +671,7 @@ def plot_rolling_correlation(mta_df, ridehail_df, window=30, summary = False):
 
     if summary:
         # Print statistics for second plot
-        print(f"\n📊 Rolling Correlation Analysis ({window}-day window):")
+        print(f"\nRolling Correlation Analysis ({window}-day window):")
         print("=" * 50)
         print(f"Rolling correlation statistics:")
         print(f"  - Mean: {daily_df['rolling_corr'].mean():.4f}")
@@ -797,7 +797,7 @@ def scatterplot_mta_vs_ridehail_daily(mta_df, ridehail_df, summary = False):
 
     if summary == True:
         # Print detailed statistics
-        print(f"\n📊 Detailed Correlation Analysis:")
+        print(f"\nDetailed Correlation Analysis:")
         print("=" * 50)
         print(f"Pearson correlation coefficient: {corr:.4f}")
         print(f"P-value: {p_value:.4f}")
