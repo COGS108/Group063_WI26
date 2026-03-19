@@ -1,19 +1,17 @@
 """Notebook import helpers for the final project."""
 
 from __future__ import annotations
-
 from datetime import datetime
-
 import geopandas as gpd
 import matplotlib.pyplot as plt
-import matplotlib.ticker as mticker
+#import matplotlib.ticker as mticker
 import numpy as np
 import pandas as pd
 import seaborn as sns
 from shapely.geometry import Point, box
 from shapely.ops import unary_union
 from statsmodels.nonparametric.smoothers_lowess import lowess
-
+#from scipy import stats
 from modules import graph, maps, utils
 
 

@@ -16,6 +16,7 @@ def plot_stations_near_taxi_zone(stations_gdf, taxi_zones_gdf, taxi_zone_id, buf
     """
     Optional: Plot the results to visualize the buffer
     """
+    
     import matplotlib.pyplot as plt
     taxi_zone_id_str = str(taxi_zone_id)
     target = taxi_zones_gdf[taxi_zones_gdf['locationid'] == taxi_zone_id_str]
@@ -910,6 +911,10 @@ def plot_zonal_correlation_heatmap(mta_zones_df, ridehail_df, taxi_zones_gdf, mi
     Zones with insufficient data appear in light gray.
     """
     
+    # Create explicit copies to avoid SettingWithCopyWarning
+    mta_zones_df = mta_zones_df.copy()
+    ridehail_df = ridehail_df.copy()
+    taxi_zones_gdf = taxi_zones_gdf.copy()
     
     # Prepare data
     ridehail_daily = ridehail_df.groupby(['date', 'PULocationID'])['trip_count'].sum().reset_index()
